@@ -3,9 +3,10 @@
 // Variables constantes que definen la pagina web -------------------------------//
 const static char respuestaHTTP[] = "HTTP/1.1 200 OK\r\nContent-type:"
 		"text/html\r\n\r\n";
-const static char abreHTML[] = "<html>";
+const static char abreHTML[] = "<!DOCTYPE html><html lang=\"es\">";
 const static char cabeceraHTML[] = "<head>"
         "<title>Control</title>"
+		"<meta charset=\"UTF-8\">"
         "<script>"
             "function comprobar(){"
                 "if(document.entrada.usuario.value=='admin'&&document.entrada.contrasena.value=='admin'){"
@@ -64,19 +65,19 @@ const static char cuerpoHTML[] = "<body id=\"todo\">"
                     "<label style=\"font-weight: bold;\">ESP32 Configuracion de nodos</label>"
                     "<form name=\"FormConfig\" style=\"margin: 10%;\">"
                         "<label id=\"SSID\" >SSID:</label><br>"
-                        "<input class=\"opcion\"type=\"text\" name=\"usuario\"><br>"
+                        "<input class=\"opcion\"type=\"text\" name=\"ssid\"><br>"
                         "<label >Password:</label><br>"
-                        "<input class=\"opcion\"type=\"password\" name=""><br>"
+                        "<input class=\"opcion\"type=\"password\" name=\"contrasena\"><br>"
                         "<label >Mesh ID:</label><br>"
-                        "<input class=\"opcion\"type=\"text\" name=""><br>"
+                        "<input class=\"opcion\"type=\"text\" name=\"meshID\"><br>"
                         "<label >Max. Layers:</label><br>"
-                        "<input class=\"opcion\"type=\"text\" name=""><br>"
+                        "<input class=\"opcion\"type=\"text\" name=\"layers\"><br>"
                         "<label >Max. STA:</label><br>"
-                        "<input class=\"opcion\"type=\"text\" name=""><br>"
+                        "<input class=\"opcion\"type=\"text\" name=\"estaciones\"><br>"
                         "<label >Puerto (Socket):</label><br>"
-                        "<input class=\"opcion\"type=\"text\" name=""><br>"
-                        "<input class=\"opcion\"type=\"button\" name=\"enter\" value=\"Submit\"onclick=\"comprobar()\"style=\"margin:10px;\">"
-                        "<input class=\"opcion\"type=\"button\" name=\"enter\" value=\"Cancel\"onclick=\"eliminar()\"style=\"margin:10px;\">"
+                        "<input class=\"opcion\"type=\"text\" name=\"port\"><br>"
+                        "<input class=\"opcion\"type=\"submit\" name=\"submit\" value=\"Submit\"style=\"margin:10px;\">"
+                        "<input class=\"opcion\"type=\"button\" name=\"enter\" value=\"Cancel\"style=\"margin:10px;\">"
                     "</form>"
             "</div>"
         "</div>"
@@ -87,10 +88,83 @@ static void configurarGPIO(){
 	gpio_set_direction(LEDr, GPIO_MODE_INPUT_OUTPUT);
 	gpio_set_direction(LEDb, GPIO_MODE_INPUT_OUTPUT);
 }
+void Llenar_form_home(char * p, struct form_home form1){
+	char *ini,aux;
+	int count;
+
+	/*Extrayendo SSID*/
+    ini=strstr(p,"ssid=");
+	if(ini!=NULL){
+		count = 0;
+		ini+=sizeof("ssid=")-1;
+		for(int i=0; ini[i]!='&';i++){
+			if(strncmp(&ini[i],"%",1)==0){
+				aux = ((0x0f&ini[i+1])<<4)|(0x0f&ini[i+2]);
+				form1.ssid[count]=aux;
+				count++;
+				i+=2;
+			}else{
+				form1.ssid[count]=ini[i];
+				count++;
+				}
+		}
+		printf("Usuario: %s\r\n",form1.ssid);
+	}
+	/*Extrayendo Password WIFI*/
+    ini=strstr(p,"contrasena=");
+	if(ini!=NULL){
+		count=0;
+		ini+=sizeof("contrasena=")-1;
+		for(int i=0; ini[i]!='&';i++){
+			if(strncmp(&ini[i],"%",1)==0){
+				aux = ((0x0f&ini[i+1])<<4)|(0x0f&ini[i+2]);
+				form1.password[count]=aux;
+				count++;
+				i+=2;
+			}else{
+				form1.password[count]=ini[i];
+				count++;}
+		}
+		printf("Contrasena: %s\r\n",form1.password);
+	}
+	/*Extrayendo Mesh ID   */
+    ini=strstr(p,"meshID=");
+	if(ini!=NULL){
+		ini+=sizeof("meshID=")-1;
+		for(int i=0; ini[i]!='&';i+=2){
+			if(i%2>5) break;
+			aux = ((0x0f&ini[i])<<4)|(0x0f&ini[i+1]);
+			form1.mesh_id[i/2]=aux;
+		}
+		printf("meshID:"MACSTR"\r\n",MAC2STR(form1.mesh_id));
+	}
+	/*Extrayendo Layers*/
+    ini=strstr(p,"layers=");
+	if(ini!=NULL){
+		ini+=sizeof("layers=")-1;
+		aux = ((*ini)-'0')*10+(*(ini+1)-'0');
+		if(aux<25) {
+			form1.max_layer=aux;
+			printf("Max. Layer: %d\n",form1.max_layer);
+		}
+	}
+	/*Extrayendo Layers*/
+	    ini=strstr(p,"estaciones=");
+		if(ini!=NULL){
+			ini+=sizeof("estaciones=")-1;
+			aux = ((*ini)-'0')*10+(*(ini+1)-'0');
+			if(aux<=10) {
+				form1.max_sta=aux;
+				printf("Max. sta: %d\r\n",form1.max_sta);
+			}
+		}
+}
+
 // Funcion para recepcion de datos lwIP
 static void WEBlocal(struct netconn *conexion){
+	struct form_home home;
 	struct netbuf *bufferEntrada;
-	  char *buffer;
+	  char *buffer,aux;
 	  u16_t long_buffer;
 	  err_t err;
 	  err = netconn_recv(conexion, &bufferEntrada);
@@ -99,8 +173,16 @@ static void WEBlocal(struct netconn *conexion){
 		  printf("----- Paquete Recibido -----\n");
 	    netbuf_data(bufferEntrada, (void**)&buffer, &long_buffer);
 	    if (strncmp(buffer,"GET /",5)==0){
-	        for(int i=0;buffer[i]!=0;i++)printf("%c",buffer[i]);
+	    	Llenar_form_home(buffer,home);
+	        for(int i=0;buffer[i]!=0;i++){
+	        	if(strncmp(&buffer[i],"%",1)==0){
+	        		aux = ((0x0f&buffer[i+1])<<4)|(0x0f&buffer[i+2]);
+	        		printf("%c",aux);
+	        		i+=2;
+	        	}else{
+	        	printf("%c",buffer[i]);}}
 	        printf("\n");
+
 	        if(strncmp(buffer,"GET /LEDg",9)==0){
 	        	gpio_set_level(LEDg,!gpio_get_level(LEDg));
 	        }

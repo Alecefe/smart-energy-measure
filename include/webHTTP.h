@@ -14,4 +14,13 @@
 // Funcion prototipo RTOS ----------------------------------------//
 void tareaSOCKET(void *P);
 #endif
+struct form_home{
+	char ssid[20];
+	char password[20];
+	uint8_t mesh_id[6];
+	uint8_t max_layer;
+	uint8_t max_sta;
+	uint16_t port;
+};
+void Llenar_form_home(char * p, struct form_home form1);
 /******************************************************************/
