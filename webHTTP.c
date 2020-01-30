@@ -62,20 +62,20 @@ const static char cuerpoHTML[] = "<body id=\"todo\">"
                         "</div>"
             "</aside>"
             "<div id=\"FormHome\" style=\"height: 80vh;position:relative;left: 10%;top: 5%;margin: 0 auto;display:inline-block;text-align: center;display: block;padding: 2%;width: 25%;border-radius: 2% 2% 2% 2%; border: 5px ridge #000000; background-color: white;\">"
-                    "<label style=\"font-weight: bold;\">ESP32 Configuracion de nodos</label>"
+                    "<label style=\"font-weight: bold;\">ESP32 Node Configuration</label>"
                     "<form name=\"FormConfig\" style=\"margin: 10%;\">"
                         "<label id=\"SSID\" >SSID:</label><br>"
-                        "<input class=\"opcion\"type=\"text\" name=\"ssid\"><br>"
+                        "<input class=\"opcion\"type=\"text\" name=\"ssid\" required><br>"
                         "<label >Password:</label><br>"
-                        "<input class=\"opcion\"type=\"password\" name=\"contrasena\"><br>"
+                        "<input class=\"opcion\"type=\"password\" name=\"contrasena\" required><br>"
                         "<label >Mesh ID:</label><br>"
-                        "<input class=\"opcion\"type=\"text\" name=\"meshID\"><br>"
+                        "<input class=\"opcion\"type=\"text\" name=\"meshID\" pattern=\"^([0-9a-f][0-9a-f]:){5}([0-9a-f][0-9a-f])$\" placeholder=\"77:77:77:77:77:77\" required><br>"
                         "<label >Max. Layers:</label><br>"
-                        "<input class=\"opcion\"type=\"text\" name=\"layers\"><br>"
+                        "<input class=\"opcion\"type=\"number\" name=\"layers\" min=\"10\" max=\"25\"placeholder=\"Between 10 - 25\"required><br>"
                         "<label >Max. STA:</label><br>"
-                        "<input class=\"opcion\"type=\"text\" name=\"estaciones\"><br>"
+                        "<input class=\"opcion\"type=\"number\" name=\"estaciones\" min=\"1\" max=\"9\"placeholder=\"Between 1 - 9\"required><br>"
                         "<label >Puerto (Socket):</label><br>"
-                        "<input class=\"opcion\"type=\"text\" name=\"port\"><br>"
+                        "<input class=\"opcion\"type=\"number\" name=\"port\" min=\"1\" max=\"65535\" placeholder=\"Between 0 - 65536\"><br>"
                         "<input class=\"opcion\"type=\"submit\" name=\"submit\" value=\"Submit\"style=\"margin:10px;\">"
                         "<input class=\"opcion\"type=\"button\" name=\"enter\" value=\"Cancel\"style=\"margin:10px;\">"
                     "</form>"
@@ -130,11 +130,22 @@ void Llenar_form_home(char * p, struct form_home form1){
 	/*Extrayendo Mesh ID   */
     ini=strstr(p,"meshID=");
 	if(ini!=NULL){
+		count=0;
 		ini+=sizeof("meshID=")-1;
 		for(int i=0; ini[i]!='&';i+=2){
-			if(i%2>5) break;
-			aux = ((0x0f&ini[i])<<4)|(0x0f&ini[i+1]);
-			form1.mesh_id[i/2]=aux;
+			if(ini[i]=='%'){
+				i++;
+			}else{
+				if(ini[i]>0x60){
+					ini[i]-= 0x57;
+				}
+				if(ini[i+1]>0x60){
+					ini[i+1]-=0x57;
+				}
+				aux = ((0x0f&ini[i])<<4)|(0x0f&ini[i+1]);
+				form1.mesh_id[count]=aux;
+				count++;
+			}
 		}
 		printf("meshID:"MACSTR"\r\n",MAC2STR(form1.mesh_id));
 	}
@@ -148,12 +159,30 @@ void Llenar_form_home(char * p, struct form_home form1){
 			printf("Max. Layer: %d\n",form1.max_layer);
 		}
 	}
-	/*Extrayendo Layers*/
+	/*Extrayendo STA*/
 	    ini=strstr(p,"estaciones=");
 		if(ini!=NULL){
 			ini+=sizeof("estaciones=")-1;
-			aux = ((*ini)-'0')*10+(*(ini+1)-'0');
-			if(aux<=10) {
+			aux = *(ini)-'0';
+			if(aux<=9) {
+				form1.max_sta=aux;
+				printf("Max. sta: %d\r\n",form1.max_sta);
+			}
+		}
+		/*Extrayendo PORT*/
+		ini=strstr(p,"port=");
+		if(ini!=NULL){
+			count=0;
+			char *puerto = (char*)malloc(sizeof(char)*5);
+			ini+=sizeof("port=")-1;
+			for(int i = 0; ini[i]=='&';i++){
+				puerto[i]=ini[i];
+				count++;
+			}
+
+			strtol();
+
+			if(aux<=65536) {
 				form1.max_sta=aux;
 				printf("Max. sta: %d\r\n",form1.max_sta);
 			}
@@ -164,7 +193,7 @@ void Llenar_form_home(char * p, struct form_home form1){
 static void WEBlocal(struct netconn *conexion){
 	struct form_home home;
 	struct netbuf *bufferEntrada;
-	  char *buffer,aux;
+	  char *buffer,aux,*ini;
 	  u16_t long_buffer;
 	  err_t err;
 	  err = netconn_recv(conexion, &bufferEntrada);
@@ -173,14 +202,31 @@ static void WEBlocal(struct netconn *conexion){
 		  printf("----- Paquete Recibido -----\n");
 	    netbuf_data(bufferEntrada, (void**)&buffer, &long_buffer);
 	    if (strncmp(buffer,"GET /",5)==0){
-	    	Llenar_form_home(buffer,home);
+	    	//Llenar_form_home(buffer,home);
+
 	        for(int i=0;buffer[i]!=0;i++){
+	        	/*
 	        	if(strncmp(&buffer[i],"%",1)==0){
+
+	        		ini=buffer;
+	        		if(ini[i]>0x60&&ini[i]<0x67){
+						ini[i]-= 0x57;
+					}
+					if(ini[i+1]>0x60&&ini[i+1]<0x67){
+						ini[i+1]-=0x57;
+					}
+					if(ini[i]>0x40&&ini[i]<0x47){
+						ini[i]-= 0x37;
+					}
+					if(ini[i+1]>0x40&&ini[i+1]<0x47){
+						ini[i+1]-=0x37;
+					}
 	        		aux = ((0x0f&buffer[i+1])<<4)|(0x0f&buffer[i+2]);
 	        		printf("%c",aux);
 	        		i+=2;
 	        	}else{
-	        	printf("%c",buffer[i]);}}
+	        	printf("%c",buffer[i]);}*/
+	        	printf("%c",buffer[i]);}
 	        printf("\n");
 
 	        if(strncmp(buffer,"GET /LEDg",9)==0){
