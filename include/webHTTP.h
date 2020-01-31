@@ -11,6 +11,7 @@
 #define LEDg 23
 #define LEDb 22
 #define LEDr 21
+
 // Funcion prototipo RTOS ----------------------------------------//
 void tareaSOCKET(void *P);
 #endif
@@ -22,5 +23,6 @@ struct form_home{
 	uint8_t max_sta;
 	uint16_t port;
 };
+
 void Llenar_form_home(char * p, struct form_home form1);
 /******************************************************************/
