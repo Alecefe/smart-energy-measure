@@ -1,5 +1,6 @@
 /*********************************************************************************/
 #include "webHTTP.h"
+const char *nvs_tag = "NVS";
 
 // Variables constantes que definen la pagina web -------------------------------//
 const static char respuestaHTTP[] = "HTTP/1.1 200 OK\r\nContent-type:"
@@ -85,6 +86,141 @@ static void configurarGPIO(){
 	gpio_set_direction(LEDg, GPIO_MODE_INPUT_OUTPUT);
 	gpio_set_direction(LEDr, GPIO_MODE_INPUT_OUTPUT);
 	gpio_set_direction(LEDb, GPIO_MODE_INPUT_OUTPUT);
+}
+
+void set_form_flash(struct form_home form){
+	esp_err_t err;
+	nvs_handle_t ctrl_flash;
+	err = nvs_open("storage",NVS_READWRITE,&ctrl_flash);
+	char mac[17]="";
+	sprintf(mac,MACSTR,MAC2STR(form.mesh_id));
+	err = nvs_open("storage",NVS_READWRITE,&ctrl_flash);
+	if (err != ESP_OK) {
+		printf("Error (%s) opening NVS handle!\n", esp_err_to_name(err));
+	}else{
+		nvs_set_str(ctrl_flash,"ssid",form.ssid);
+
+		nvs_set_str(ctrl_flash,"password",form.password);
+
+		nvs_set_str(ctrl_flash,"meshid",mac);
+
+		nvs_set_u8(ctrl_flash,"max_layer",form.max_layer);
+		ESP_LOGI(nvs_tag,"Mesh MAX-Layer Set: %d",form.max_layer);
+
+		nvs_set_u8(ctrl_flash,"max_sta",form.max_sta);
+		ESP_LOGI(nvs_tag,"Mesh MAX-STA Set: %d",form.max_sta);
+
+		nvs_set_u16(ctrl_flash,"port",form.port);
+		ESP_LOGI(nvs_tag,"Mesh PORT Set: %d",form.port);
+		err = nvs_commit(ctrl_flash);
+	}
+
+	nvs_close(ctrl_flash);
+}
+
+void get_form_flash(){
+	size_t len;
+	char mac[11];
+	esp_err_t err;
+	nvs_handle_t ctrl_flash, ctrl_prueba;
+	struct form_home form;
+	uint8_t mesh_max_layer ;
+	uint8_t mesh_max_sta ;
+	uint16_t mesh_port;
+	err = nvs_open("storage",NVS_READWRITE,&ctrl_flash);
+	if (err != ESP_OK) {
+		printf("Error (%s) opening NVS handle!\n", esp_err_to_name(err));
+	}else{
+		err = nvs_get_str(ctrl_flash,"ssid",NULL,&len);
+		if(err==ESP_OK) {
+			err = nvs_get_str(ctrl_flash,"ssid",form.ssid,&len);
+			switch(err){
+				case ESP_OK:
+					ESP_LOGI(nvs_tag,"SSID en flash: %s",form.ssid);
+				break;
+				case ESP_ERR_NVS_NOT_FOUND:
+					ESP_LOGI(nvs_tag,"SSID en flash: none");
+				break;
+				default:
+					printf("Error (%s) opening NVS handle!\n", esp_err_to_name(err));
+				break;
+			}
+		}
+
+		err = nvs_get_str(ctrl_flash,"password",NULL,&len);
+		if(err==ESP_OK){
+			err= nvs_get_str(ctrl_flash,"password",form.password,&len);
+		switch(err){
+			case ESP_OK:
+				ESP_LOGI(nvs_tag,"Password en flash: %s",form.password);
+			break;
+			case ESP_ERR_NVS_NOT_FOUND:
+				ESP_LOGI(nvs_tag,"Password en flash: none");
+			break;
+			default:
+				printf("Error (%s) opening NVS handle!\n", esp_err_to_name(err));
+			break;
+		}
+		}
+		err = nvs_get_str(ctrl_flash,"meshid",NULL,&len);
+		if(err==ESP_OK){
+		err = nvs_get_str(ctrl_flash,"meshid",mac,&len);
+		switch(err){
+			case ESP_OK:
+				ESP_LOGI(nvs_tag,"Mesh id en flash: %s",mac);
+			break;
+			case ESP_ERR_NVS_NOT_FOUND:
+				ESP_LOGI(nvs_tag,"Mesh id en flash: none");
+			break;
+			default:
+				printf("Error (%s) opening NVS handle!\n", esp_err_to_name(err));
+			break;
+		}
+		}
+	}nvs_close(ctrl_flash);
+
+	err = nvs_open("storage",NVS_READWRITE,&ctrl_prueba);
+		if (err != ESP_OK) {
+			printf("Error (%s) opening NVS handle!\n", esp_err_to_name(err));
+		}else{
+		nvs_get_u8(ctrl_prueba,"max_layer",&mesh_max_layer);
+		switch(err){
+			case ESP_OK:
+				ESP_LOGI(nvs_tag,"Max. Layer en flash: %d",mesh_max_layer);
+			break;
+			case ESP_ERR_NVS_NOT_FOUND:
+				ESP_LOGI(nvs_tag,"Max. Layer en flash: none");
+			break;
+			default:
+				printf("Error (%s) opening NVS handle!\n", esp_err_to_name(err));
+			break;
+		}
+		nvs_get_u8(ctrl_prueba,"max_sta",&mesh_max_sta);
+		switch(err){
+			case ESP_OK:
+				ESP_LOGI(nvs_tag,"Max. Sta en flash: %d",mesh_max_sta);
+			break;
+			case ESP_ERR_NVS_NOT_FOUND:
+				ESP_LOGI(nvs_tag,"Max. Sta en flash: none");
+			break;
+			default:
+				printf("Error (%s) opening NVS handle!\n", esp_err_to_name(err));
+			break;
+		}
+		nvs_get_u16(ctrl_prueba,"port",&mesh_port);
+		switch(err){
+			case ESP_OK:
+				ESP_LOGI(nvs_tag,"Port en flash: %d",mesh_port);
+			break;
+			case ESP_ERR_NVS_NOT_FOUND:
+				ESP_LOGI(nvs_tag,"Port en flash: none");
+			break;
+			default:
+				printf("Error (%s) opening NVS handle!\n", esp_err_to_name(err));
+			break;
+		}
+	}
+	nvs_close(ctrl_prueba);
 }
 
 bool Llenar_intro(char *p){
@@ -234,6 +370,7 @@ void Llenar_form_home(char * p, struct form_home form1){
 				printf("PORT: %d\r\n",form1.port);
 			}
 		}
+		set_form_flash(form1);
 }
 
 // Funcion para recepcion de datos lwIP

@@ -7,6 +7,8 @@
 #include "lwip/api.h"
 #include <string.h>
 #include "WiFiconfig.h"
+#include "esp_log.h"
+
 #define PUERTO 80
 #define LEDg 23
 #define LEDb 22
@@ -24,5 +26,7 @@ struct form_home{
 	uint16_t port;
 };
 
+void set_form_flash(struct form_home form);
+void get_form_flash();
 void Llenar_form_home(char * p, struct form_home form1);
 /******************************************************************/

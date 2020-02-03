@@ -6,5 +6,5 @@ void app_main(){
 	nvs_flash_init();
 	Cola_UART = xQueueCreate(tamCOLA,tamMSN);
 	iniciarUART();
-	xTaskCreatePinnedToCore(&tarea1,"PaseUART",Pila*2,NULL,3,NULL,0);
+	xTaskCreatePinnedToCore(&tarea1,"PaseUART",Pila*4,NULL,3,NULL,0);
 }

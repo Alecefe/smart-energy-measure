@@ -63,6 +63,7 @@ static void habilitador(uint8_t estado){
 			uart_write_bytes(UART_NUM_0,(const char*)paseC2,strlen(paseC2));
 			vTaskDelay(500/portTICK_PERIOD_MS);
 			xTaskCreatePinnedToCore(&tareaSOCKET,"SOCKET_HTTP",1024*3,NULL,3,NULL,1);
+			get_form_flash();
 			vTaskDelete(NULL);
 		}else{
 			uart_write_bytes(UART_NUM_0,(const char*)errorU1,strlen(errorU1));
