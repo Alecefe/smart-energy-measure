@@ -1,5 +1,7 @@
 /*********************************************************************************/
 #include "webHTTP.h"
+const char *nvs_tag = "NVS";
+const char *http_server = "HTTP SERVER";
 
 // Variables constantes que definen la pagina web -------------------------------//
 const static char respuestaHTTP[] = "HTTP/1.1 200 OK\r\nContent-type:"
@@ -33,6 +35,22 @@ const static char cabeceraHTML[] = "<head>"
             "}"
         "</style>"
 		"</head>";
+
+const static char cuerpoALERTAok[] ="<script>"
+				"alert('Datos almacenados correctamente')"
+				"</script>";
+
+const static char cuerpoALERTAnok[] ="<script>"
+				"alert('Error en los datos')"
+				"</script>";
+
+const static char cuerpoALERTAintro[] ="<script>"
+				"alert('Usuario o Contraseña Incorrecto')"
+				"</script>";
+const static char cuerpoReinicio[] ="<script>"
+				"alert('ESP32 Mesh Start')"
+				"</script>";
+
 const static char cuerpoHTML[] = "<body id=\"todo\">"
         "<div id=\"formInput\" style=\"margin: 0 auto;margin-top:20%;display:inline-block;text-align: center;display: block;padding: 2%;width: 25%;border-radius: 2% 2% 2% 2%; border: 5px ridge #000000; background-color: white;\">"
                 "<form name=\"entrada\">"
@@ -64,9 +82,11 @@ const static char cuerpoHTML_INI[] =
                         "<input class=\"opcion\"type=\"text\" name=\"ssid\" required><br>"
                         "<label >Password:</label><br>"
                         "<input class=\"opcion\"type=\"password\" name=\"contrasena\" required><br>"
-                        "<label >Mesh ID:</label><br>"
+						"<label >Mesh ID:</label><br>"
                         "<input class=\"opcion\"type=\"text\" name=\"meshID\" pattern=\"^([0-9a-f][0-9a-f]:){5}([0-9a-f][0-9a-f])$\" placeholder=\"77:77:77:77:77:77\" required><br>"
-                        "<label >Max. Layers:</label><br>"
+						"<label >Mesh AP Password:</label><br>"
+						"<input class=\"opcion\"type=\"password\" name=\"meshAPpass\" required><br>"
+						"<label >Max. Layers:</label><br>"
                         "<input class=\"opcion\"type=\"number\" name=\"layers\" min=\"10\" max=\"25\"placeholder=\"Between 10 - 25\"required><br>"
                         "<label >Max. STA:</label><br>"
                         "<input class=\"opcion\"type=\"number\" name=\"estaciones\" min=\"1\" max=\"9\"placeholder=\"Between 1 - 9\"required><br>"
@@ -75,16 +95,164 @@ const static char cuerpoHTML_INI[] =
                         "<input class=\"opcion\"type=\"submit\" name=\"submit\" value=\"Submit\"style=\"margin:10px;\">"
                         "<input class=\"opcion\"type=\"button\" name=\"enter\" value=\"Cancel\"style=\"margin:10px;\">"
                     "</form>"
+					"<form name=\"Reset ESP\">"
+						"<input type=\"submit\" id=\"restart\" style=\"padding: 10%;\" name=\"reinicio\" value=\"Start Mesh\"runat=\"server\"formmethod=\"post\">"
+					"</form>"
             "</div>"
         "</div>"
     "</body>";
 
 const static char cierraHTML[] = "</html>";
 
-static void configurarGPIO(){
-	gpio_set_direction(LEDg, GPIO_MODE_INPUT_OUTPUT);
-	gpio_set_direction(LEDr, GPIO_MODE_INPUT_OUTPUT);
-	gpio_set_direction(LEDb, GPIO_MODE_INPUT_OUTPUT);
+
+void set_form_flash(struct form_home form){
+	esp_err_t err;
+	nvs_handle_t ctrl_flash;
+	err = nvs_open("storage",NVS_READWRITE,&ctrl_flash);
+	/*
+	char mac[17]="";
+	sprintf(mac,MACSTR,MAC2STR(form.mesh_id));*/
+	err = nvs_open("storage",NVS_READWRITE,&ctrl_flash);
+	if (err != ESP_OK) {
+		printf("Error (%s) opening NVS handle!\n", esp_err_to_name(err));
+	}else{
+		nvs_set_str(ctrl_flash,"ssid",form.ssid);
+
+		nvs_set_str(ctrl_flash,"password",form.password);
+
+		//nvs_set_str(ctrl_flash,"meshid",mac);
+
+		nvs_set_blob(ctrl_flash,"meshid",form.mesh_id,sizeof(form.mesh_id));
+
+		nvs_set_str(ctrl_flash,"meshpass",form.meshappass);
+
+		nvs_set_u8(ctrl_flash,"max_layer",form.max_layer);
+
+		nvs_set_u8(ctrl_flash,"max_sta",form.max_sta);
+
+		nvs_set_u16(ctrl_flash,"port",form.port);
+		err = nvs_commit(ctrl_flash);
+	}
+
+	nvs_close(ctrl_flash);
+}
+
+void get_form_flash(struct form_home *form){
+	size_t len;
+	char mac[17];
+	esp_err_t err;
+	nvs_handle_t ctrl_flash, ctrl_prueba;
+	err = nvs_open("storage",NVS_READWRITE,&ctrl_flash);
+	if (err != ESP_OK) {
+		printf("Error (%s) opening NVS handle!\n", esp_err_to_name(err));
+	}else{
+		err = nvs_get_str(ctrl_flash,"ssid",NULL,&len);
+		if(err==ESP_OK) {
+			err = nvs_get_str(ctrl_flash,"ssid",form->ssid,&len);
+			switch(err){
+				case ESP_OK:
+					ESP_LOGI(nvs_tag,"SSID en flash: %s",form->ssid);
+				break;
+				case ESP_ERR_NVS_NOT_FOUND:
+					ESP_LOGI(nvs_tag,"SSID en flash: none");
+				break;
+				default:
+					printf("Error (%s) opening NVS handle!\n", esp_err_to_name(err));
+				break;
+			}
+		}
+
+		err = nvs_get_str(ctrl_flash,"password",NULL,&len);
+		if(err==ESP_OK){
+			err= nvs_get_str(ctrl_flash,"password",form->password,&len);
+		switch(err){
+			case ESP_OK:
+				ESP_LOGI(nvs_tag,"Password en flash: %s",form->password);
+			break;
+			case ESP_ERR_NVS_NOT_FOUND:
+				ESP_LOGI(nvs_tag,"Password en flash: none");
+			break;
+			default:
+				printf("Error (%s) opening NVS handle!\n", esp_err_to_name(err));
+			break;
+		}
+		}
+		err = nvs_get_blob(ctrl_flash,"meshid",NULL,&len);
+		if(err==ESP_OK){
+		err = nvs_get_blob(ctrl_flash,"meshid",form->mesh_id,&len);
+		switch(err){
+			case ESP_OK:
+				sprintf(mac,MACSTR,MAC2STR(form->mesh_id));
+				ESP_LOGI(nvs_tag,"Mesh id en flash: %s",mac);
+			break;
+			case ESP_ERR_NVS_NOT_FOUND:
+				ESP_LOGI(nvs_tag,"Mesh id en flash: none");
+			break;
+			default:
+				printf("Error (%s) opening NVS handle!\n", esp_err_to_name(err));
+			break;
+		}
+		}
+	}nvs_close(ctrl_flash);
+
+	err = nvs_open("storage",NVS_READWRITE,&ctrl_prueba);
+
+		if (err != ESP_OK) {
+			printf("Error (%s) opening NVS handle!\n", esp_err_to_name(err));
+		}else{
+			err = nvs_get_str(ctrl_prueba,"meshpass",NULL,&len);
+			if(err==ESP_OK){
+				err= nvs_get_str(ctrl_prueba,"meshpass",form->meshappass,&len);
+			switch(err){
+				case ESP_OK:
+					ESP_LOGI(nvs_tag,"Mesh password en flash: %s",form->meshappass);
+				break;
+				case ESP_ERR_NVS_NOT_FOUND:
+					ESP_LOGI(nvs_tag,"Mesh password en flash: none");
+				break;
+				default:
+					printf("Error (%s) opening NVS handle!\n", esp_err_to_name(err));
+				break;
+			}
+			}
+			nvs_get_u8(ctrl_prueba,"max_layer",&(form->max_layer));
+			switch(err){
+				case ESP_OK:
+					ESP_LOGI(nvs_tag,"Max. Layer en flash: %d",form->max_layer);
+				break;
+				case ESP_ERR_NVS_NOT_FOUND:
+					ESP_LOGI(nvs_tag,"Max. Layer en flash: none");
+				break;
+				default:
+					printf("Error (%s) opening NVS handle!\n", esp_err_to_name(err));
+				break;
+			}
+			nvs_get_u8(ctrl_prueba,"max_sta",&(form->max_sta));
+			switch(err){
+				case ESP_OK:
+					ESP_LOGI(nvs_tag,"Max. Sta en flash: %d",form->max_sta);
+				break;
+				case ESP_ERR_NVS_NOT_FOUND:
+					ESP_LOGI(nvs_tag,"Max. Sta en flash: none");
+				break;
+				default:
+					printf("Error (%s) opening NVS handle!\n", esp_err_to_name(err));
+				break;
+			}
+			nvs_get_u16(ctrl_prueba,"port",&(form->port));
+			switch(err){
+				case ESP_OK:
+					ESP_LOGI(nvs_tag,"Port en flash: %d",form->port);
+				break;
+				case ESP_ERR_NVS_NOT_FOUND:
+					ESP_LOGI(nvs_tag,"Port en flash: none");
+				break;
+				default:
+					printf("Error (%s) opening NVS handle!\n", esp_err_to_name(err));
+				break;
+			}
+	}
+	nvs_close(ctrl_prueba);
 }
 
 bool Llenar_intro(char *p){
@@ -115,7 +283,7 @@ bool Llenar_intro(char *p){
 	return true;
 	}
 
-void Llenar_form_home(char * p, struct form_home form1){
+bool Llenar_form_home(char * p, struct form_home form1){
 	char *ini,aux,cono[2];
 	int count;
 
@@ -146,6 +314,7 @@ void Llenar_form_home(char * p, struct form_home form1){
 				count++;
 				}
 		}
+		if (count == 0) return false;
 		printf("Usuario: %s\r\n",form1.ssid);
 	}
 	/*Extrayendo Password WIFI*/
@@ -174,6 +343,7 @@ void Llenar_form_home(char * p, struct form_home form1){
 				form1.password[count]=ini[i];
 				count++;}
 		}
+		if (count == 0) return false;
 		printf("Contrasena: %s\r\n",form1.password);
 	}
 	/*Extrayendo Mesh ID   */
@@ -196,8 +366,40 @@ void Llenar_form_home(char * p, struct form_home form1){
 				count++;
 			}
 		}
+		if (count == 0) return false;
 		printf("meshID:"MACSTR"\r\n",MAC2STR(form1.mesh_id));
 	}
+	/*Extrayendo Mesh AP Password*/
+    ini=strstr(p,"meshAPpass=");
+	if(ini!=NULL){
+		count=0;
+		for(int i =0;i<20;i++){
+			form1.meshappass[i]=NULL;
+		}
+		ini+=sizeof("meshAPpass=")-1;
+		for(int i=0; ini[i]!='&';i++){
+			if(strncmp(&ini[i],"%",1)==0){
+				cono[0]=ini[i+1];
+				cono[1]=ini[i+2];
+				if(cono[0]>0x40&&cono[0]<0x47){
+					cono[0]-= 0x37;
+				}
+				if(cono[1]>0x40&&cono[1]<0x47){
+					cono[1]-=0x37;
+				}
+				aux = ((0x0f&cono[0])<<4)|(0x0f&cono[1]);
+				form1.meshappass[count]=aux;
+				i+=2;
+				count++;
+			}else{
+				form1.meshappass[count]=ini[i];
+				count++;}
+		}
+		if (count == 0) return false;
+		printf("Mesh AP Password: %s\r\n",form1.meshappass);
+	}
+
+
 	/*Extrayendo Layers*/
     ini=strstr(p,"layers=");
 	if(ini!=NULL){
@@ -206,7 +408,7 @@ void Llenar_form_home(char * p, struct form_home form1){
 		if(aux<25) {
 			form1.max_layer=aux;
 			printf("Max. Layer: %d\r\n",form1.max_layer);
-		}
+		}else return false;
 	}
 	/*Extrayendo STA*/
 	    ini=strstr(p,"estaciones=");
@@ -216,7 +418,7 @@ void Llenar_form_home(char * p, struct form_home form1){
 			if(aux<=9) {
 				form1.max_sta=aux;
 				printf("Max. sta: %d\r\n",form1.max_sta);
-			}
+			}else return false;
 		}
 		/*Extrayendo PORT*/
 		ini=strstr(p,"port=");
@@ -232,12 +434,15 @@ void Llenar_form_home(char * p, struct form_home form1){
 			if(aux1<=65536) {
 				form1.port=(uint16_t)aux1;
 				printf("PORT: %d\r\n",form1.port);
-			}
+			}else return false;
 		}
+		set_form_flash(form1);
+		return true;
 }
 
 // Funcion para recepcion de datos lwIP
-static void WEBlocal(struct netconn *conexion){
+static void WEBlocal(struct netconn *conexion,struct netconn *close){
+	char *auxi;
 	struct form_home home;
 	struct netbuf *bufferEntrada;
 	  char *buffer,aux,ini[2];
@@ -261,6 +466,7 @@ static void WEBlocal(struct netconn *conexion){
 				netconn_write(conexion, abreHTML, sizeof(abreHTML)-1, NETCONN_NOCOPY);
 				netconn_write(conexion, cabeceraHTML, sizeof(cabeceraHTML)-1, NETCONN_NOCOPY);
 				netconn_write(conexion, cuerpoHTML, sizeof(cuerpoHTML)-1, NETCONN_NOCOPY);
+				netconn_write(conexion, cuerpoALERTAintro, sizeof(cuerpoALERTAintro)-1, NETCONN_NOCOPY);
 				netconn_write(conexion, cierraHTML, sizeof(cierraHTML)-1, NETCONN_NOCOPY);
 	    	}
 	    }
@@ -285,8 +491,23 @@ static void WEBlocal(struct netconn *conexion){
 	        		printf("%c",buffer[i]);}
 	        }
 	        printf("\n");
-	        Llenar_form_home(buffer,home);
-	        netconn_write(conexion, respuestaHTTP, sizeof(respuestaHTTP)-1,NETCONN_NOCOPY);
+	        if (Llenar_form_home(buffer,home)){
+	        	netconn_write(conexion, respuestaHTTP, sizeof(respuestaHTTP)-1,NETCONN_NOCOPY);
+	        	netconn_write(conexion, abreHTML, sizeof(abreHTML)-1, NETCONN_NOCOPY);
+	        	netconn_write(conexion, cabeceraHTML, sizeof(cabeceraHTML)-1, NETCONN_NOCOPY);
+	        	netconn_write(conexion, cuerpoHTML_INI, sizeof(cuerpoHTML_INI)-1, NETCONN_NOCOPY);
+	        	netconn_write(conexion, cuerpoALERTAok, sizeof(cuerpoALERTAok)-1, NETCONN_NOCOPY);
+	        	netconn_write(conexion, cierraHTML, sizeof(cierraHTML)-1, NETCONN_NOCOPY);
+	        }
+	        else{
+	        	netconn_write(conexion, respuestaHTTP, sizeof(respuestaHTTP)-1,NETCONN_NOCOPY);
+				netconn_write(conexion, abreHTML, sizeof(abreHTML)-1, NETCONN_NOCOPY);
+				netconn_write(conexion, cabeceraHTML, sizeof(cabeceraHTML)-1, NETCONN_NOCOPY);
+				netconn_write(conexion, cuerpoALERTAnok, sizeof(cuerpoALERTAnok)-1, NETCONN_NOCOPY);
+				netconn_write(conexion, cuerpoHTML_INI, sizeof(cuerpoHTML_INI)-1, NETCONN_NOCOPY);
+				netconn_write(conexion, cierraHTML, sizeof(cierraHTML)-1, NETCONN_NOCOPY);
+
+	        }
 	    }
 	    if(strncmp(buffer,"GET / HTTP/1.1",14)==0){
 	    	for(int i=0;buffer[i]!=0;i++){
@@ -313,6 +534,41 @@ static void WEBlocal(struct netconn *conexion){
 	        netconn_write(conexion, cuerpoHTML, sizeof(cuerpoHTML)-1, NETCONN_NOCOPY);
 	        netconn_write(conexion, cierraHTML, sizeof(cierraHTML)-1, NETCONN_NOCOPY);
 	    }
+	    if(strncmp(buffer,"POST /",6)==0){
+	    	auxi = strstr(buffer,"reinicio=");
+	    	if(auxi!=NULL){
+	    		netconn_write(conexion, respuestaHTTP, sizeof(respuestaHTTP)-1,NETCONN_NOCOPY);
+				netconn_write(conexion, abreHTML, sizeof(abreHTML)-1, NETCONN_NOCOPY);
+				netconn_write(conexion, cabeceraHTML, sizeof(cabeceraHTML)-1, NETCONN_NOCOPY);
+				netconn_write(conexion, cuerpoReinicio, sizeof(cuerpoReinicio)-1, NETCONN_NOCOPY);
+				netconn_write(conexion, cierraHTML, sizeof(cierraHTML)-1, NETCONN_NOCOPY);
+	    		netconn_close(conexion);
+	    		netbuf_delete(bufferEntrada);
+	    		netconn_delete(conexion);
+	    		netconn_close(close);
+	    		netconn_delete(close);
+	    		esp_restart();
+	    	}
+	    	for(int i=0;buffer[i]!=0;i++){
+			if(strncmp(&buffer[i],"%",1)==0){
+
+				ini[0]=buffer[i+1];
+				ini[1]=buffer[i+2];
+				if(ini[0]>0x40&&ini[0]<0x47){
+					ini[0]-= 0x37;
+				}
+				if(ini[1]>0x40&&ini[1]<0x47){
+					ini[1]-=0x37;
+				}
+				aux = ((0x0f&ini[0])<<4)|(0x0f&ini[1]);
+				printf("%c",aux);
+				i+=2;
+			}else{
+				printf("%c",buffer[i]);}
+		}
+		printf("\n");
+
+	    }
 	  }
 	  netconn_close(conexion);
 	  netbuf_delete(bufferEntrada);
@@ -320,7 +576,6 @@ static void WEBlocal(struct netconn *conexion){
 
 // Tarea RTOS para el servidor --------------------------------------------------//
 void tareaSOCKET(void *P){
-	configurarGPIO();
 	esp_wifi_restore();
 	iniciar_wifi();
 	struct netconn *conectar, *NuevaCon;
@@ -331,8 +586,8 @@ void tareaSOCKET(void *P){
 	  do {
 	     err = netconn_accept(conectar, &NuevaCon);
 	     if (err == ERR_OK) {
-	    	 WEBlocal(NuevaCon);
-	       netconn_delete(NuevaCon);
+	    	 WEBlocal(NuevaCon,conectar);
+	    	 netconn_delete(NuevaCon);
 	     }
 	   } while(err == ERR_OK);
 

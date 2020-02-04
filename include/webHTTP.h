@@ -2,15 +2,11 @@
 #ifndef MAIN_SERVERHTTP_H_
 #define MAIN_SERVERHTTP_H_
 // Inclusion de librerias ----------------------------------------//
-#include "freertos/FreeRTOS.h"
-#include "freertos/task.h"
 #include "lwip/api.h"
-#include <string.h>
 #include "WiFiconfig.h"
+#include "esp_log.h"
+
 #define PUERTO 80
-#define LEDg 23
-#define LEDb 22
-#define LEDr 21
 
 // Funcion prototipo RTOS ----------------------------------------//
 void tareaSOCKET(void *P);
@@ -19,10 +15,15 @@ struct form_home{
 	char ssid[20];
 	char password[20];
 	uint8_t mesh_id[6];
+	char meshappass [20];
 	uint8_t max_layer;
 	uint8_t max_sta;
 	uint16_t port;
 };
+TaskHandle_t http_socket;
 
-void Llenar_form_home(char * p, struct form_home form1);
+void set_form_flash(struct form_home form);
+void get_form_flash();
+bool Llenar_intro();
+bool Llenar_form_home(char * p, struct form_home form1);
 /******************************************************************/

@@ -13,7 +13,9 @@
 #define nombreWiFi "PruebaDeAcceso"
 #define claveWiFi  "12345678"
 #define MAX_STA_CONN 10
+#define PIN_CONFIG_1 0
 // Funcion prototipo para inicializacion del WiFi ----------//
 void iniciar_wifi(void);
+void config_gpio();
 #endif
 /************************************************************/
