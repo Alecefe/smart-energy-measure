@@ -39,4 +39,11 @@ void iniciar_wifi(void){
 	    esp_wifi_set_config(WIFI_IF_AP, &wifi_config);
 	    esp_wifi_start();
 }
+
+void config_gpio(){
+	gpio_pad_select_gpio(PIN_CONFIG_1);
+	gpio_set_direction(PIN_CONFIG_1,GPIO_MODE_DEF_INPUT);
+}
+
+
 /**************************************************************************/
