@@ -1,7 +1,7 @@
-#include "WiFiconfig.h"
-#include "webHTTP.h"
+#include "include/mesh.h"
 #define Pila 1024
-const char*MESH_TAG = "MESH";
+
+static const char *MESH_INIT = "MESH_INIT";
 
 void app_main(){
 	config_gpio();
@@ -11,12 +11,13 @@ void app_main(){
 	if(gpio_get_level(PIN_CONFIG_1)==0){
 		xTaskCreatePinnedToCore(&tareaSOCKET,"SOCKET_HTTP",Pila*3,NULL,3,&http_socket,1);
 	}else{
-		ESP_LOGW(MESH_TAG,"SSID = %s",form.ssid);
-		ESP_LOGW(MESH_TAG,"PASSWORD = %s",form.password);
-		ESP_LOGW(MESH_TAG,"MESH ID = "MACSTR,MAC2STR(form.mesh_id));
-		ESP_LOGW(MESH_TAG,"MESH PASSWORD = %s",form.meshappass);
-		ESP_LOGW(MESH_TAG,"MESH MAX LAYER = %d",form.max_layer);
-		ESP_LOGW(MESH_TAG,"MESH MAX STA = %d",form.max_sta);
-		ESP_LOGW(MESH_TAG,"MESH PORT = %d",form.port);
+		ESP_LOGW(MESH_INIT,"SSID = %s",form.ssid);
+		ESP_LOGW(MESH_INIT,"PASSWORD = %s",form.password);
+		ESP_LOGW(MESH_INIT,"MESH ID = "MACSTR,MAC2STR(form.mesh_id));
+		ESP_LOGW(MESH_INIT,"MESH PASSWORD = %s",form.meshappass);
+		ESP_LOGW(MESH_INIT,"MESH MAX LAYER = %d",form.max_layer);
+		ESP_LOGW(MESH_INIT,"MESH MAX STA = %d",form.max_sta);
+		ESP_LOGW(MESH_INIT,"MESH PORT = %d",form.port);
+		mesh_init(form);
 	}
 }
