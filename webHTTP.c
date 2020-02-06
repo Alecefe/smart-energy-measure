@@ -65,7 +65,7 @@ const static char cuerpoHTML[] = "<body id=\"todo\">"
 		"</body>";
 const static char cuerpoHTML_INI[] =
 		"<body id=\"todo\">"
-        "<div id=\"pagina\" style=\" display: block;height:100vh;background-color:blue; background-image: linear-gradient(to bottom right, white,blue,white);width: 100%;\">"
+        "<div id=\"pagina\" style=\" display: block;height:100vh;padding=1%;background-color:blue; background-image: linear-gradient(to bottom right, white,blue,white);width: 100%;\">"
             "<aside id=\"menu\" style=\"width:20%;float:left; background-color: #eee;\">"
                     "<div class=\"vertical-menu\" style=\"height: 100vh;\">"
                             "<a href=\"#\" class=\"active\">Home</a>"
@@ -75,7 +75,7 @@ const static char cuerpoHTML_INI[] =
                             "<a href=\"#\">Link 4</a>"
                         "</div>"
             "</aside>"
-            "<div id=\"FormHome\" style=\"height: 80vh;position:relative;left: 10%;top: 5%;margin: 0 auto;display:inline-block;text-align: center;display: block;padding: 2%;width: 25%;border-radius: 2% 2% 2% 2%; border: 5px ridge #000000; background-color: white;\">"
+            "<div id=\"FormHome\" style=\"padding=10%;position:relative;left: 10%;top: 5%;margin: 0 auto;display:inline-block;text-align: center;display: block;padding: 2%;width: 25%;border-radius: 2% 2% 2% 2%; border: 5px ridge #000000; background-color: white;\">"
                     "<label style=\"font-weight: bold;\">ESP32 Node Configuration</label>"
                     "<form name=\"FormConfig\" style=\"margin: 10%;id=\"init\"\">"
                         "<label id=\"SSID\" >SSID:</label><br>"
@@ -90,11 +90,14 @@ const static char cuerpoHTML_INI[] =
                         "<input class=\"opcion\"type=\"number\" name=\"layers\" min=\"10\" max=\"25\"placeholder=\"Between 10 - 25\"required><br>"
                         "<label >Max. STA:</label><br>"
                         "<input class=\"opcion\"type=\"number\" name=\"estaciones\" min=\"1\" max=\"9\"placeholder=\"Between 1 - 9\"required><br>"
-                        "<label >Puerto (Socket):</label><br>"
+                        "<label >Port (Socket):</label><br>"
                         "<input class=\"opcion\"type=\"number\" name=\"port\" min=\"1\" max=\"65535\" placeholder=\"Between 0 - 65536\"><br>"
-						"<select name = \"modowifi\">"
-						"<option value = \"rs485\">Salida RS485</option>"
-						"<option value = \"pulsos\">Salida por pulsos</option>"
+						"<label >Initial Energy [kWh]:</label><br>"
+						"<input class=\"opcion\"type=\"number\" name=\"energia\" placeholder=\"Inicial kWh\"><br>"
+						"<select name = \"modoOutput\">"
+						"<option value = \"rs485\">Standard RS485 Output</option>"
+						"<option value = \"pulsos\">Pulse Output</option>"
+						"<option value = \"chino\">LogoMeter RS485 Output</option>"
 						"</select><br>"
 						"<input class=\"opcion\"type=\"submit\" name=\"submit\" value=\"Submit\"style=\"margin:10px;\">"
                         "<input class=\"opcion\"type=\"button\" name=\"enter\" value=\"Cancel\"style=\"margin:10px;\">"
@@ -136,6 +139,11 @@ void set_form_flash(struct form_home form){
 		nvs_set_u8(ctrl_flash,"max_sta",form.max_sta);
 
 		nvs_set_u16(ctrl_flash,"port",form.port);
+
+		nvs_set_u64(ctrl_flash,"energy",form.energia);
+
+		nvs_set_u8(ctrl_flash,"tipo",form.tipo);
+
 		err = nvs_commit(ctrl_flash);
 	}
 
@@ -256,13 +264,36 @@ void get_form_flash(struct form_home *form){
 					printf("Error (%s) opening NVS handle!\n", esp_err_to_name(err));
 				break;
 			}
+			nvs_get_u64(ctrl_prueba,"energy",&(form->energia));
+			switch(err){
+				case ESP_OK:
+					ESP_LOGI(nvs_tag,"Medicion de energia en flash: %"PRIu64,form->energia);
+				break;
+				case ESP_ERR_NVS_NOT_FOUND:
+					ESP_LOGI(nvs_tag,"Medicion de energia en flash: none");
+				break;
+				default:
+					printf("Error (%s) opening NVS handle!\n", esp_err_to_name(err));
+				break;
+			}
+			nvs_get_u8(ctrl_prueba,"tipo",&(form->tipo));
+			switch(err){
+				case ESP_OK:
+					ESP_LOGI(nvs_tag,"Tipo de Medidor en flash: %s",((form->tipo)==0)? "RS485 Standard":((form->tipo)==1)? "Pulse":"RS485 LogoMeter");
+				break;
+				case ESP_ERR_NVS_NOT_FOUND:
+					ESP_LOGI(nvs_tag,"Tipo de Medidor flash: none");
+				break;
+				default:
+					printf("Error (%s) opening NVS handle!\n", esp_err_to_name(err));
+				break;
+			}
 	}
 	nvs_close(ctrl_prueba);
 }
 
 bool Llenar_intro(char *p){
 	char *ini;
-	int count;
 	char usuario[9]="mesh+user";
 	char password[9]="polilla22";
 
@@ -297,7 +328,7 @@ bool Llenar_form_home(char * p, struct form_home form1){
 	if(ini!=NULL){
 		count = 0;
 		for(int i =0;i<20;i++){
-			form1.ssid[i]=NULL;
+			form1.ssid[i]=0x00;
 		}
 		ini+=sizeof("ssid=")-1;
 		for(int i=0; ini[i]!='&';i++){
@@ -327,7 +358,7 @@ bool Llenar_form_home(char * p, struct form_home form1){
 	if(ini!=NULL){
 		count=0;
 		for(int i =0;i<20;i++){
-			form1.password[i]=NULL;
+			form1.password[i]=0x00;
 		}
 		ini+=sizeof("contrasena=")-1;
 		for(int i=0; ini[i]!='&';i++){
@@ -379,7 +410,7 @@ bool Llenar_form_home(char * p, struct form_home form1){
 	if(ini!=NULL){
 		count=0;
 		for(int i =0;i<20;i++){
-			form1.meshappass[i]=NULL;
+			form1.meshappass[i]=0x00;
 		}
 		ini+=sizeof("meshAPpass=")-1;
 		for(int i=0; ini[i]!='&';i++){
@@ -441,6 +472,38 @@ bool Llenar_form_home(char * p, struct form_home form1){
 				printf("PORT: %d\r\n",form1.port);
 			}else return false;
 		}
+		/*Extrayendo Medida Inicial*/
+		    ini=strstr(p,"energia=");
+			if(ini!=NULL){
+				ini+=sizeof("energia=")-1;
+				char energy[]="";
+				uint64_t backup=0;
+				for(int i = 0; ini[i]!='&';i++){
+					energy[i]=ini[i];
+				}
+				backup = atoi(energy);
+				if(backup>=0){
+					form1.energia = backup;
+					printf("Medicion inicial:%"PRIu64"kWh\r\n",form1.energia);
+				}
+			}
+			/*Extrayendo Modo Output*/
+			ini = strstr(p,"modoOutput=");
+			if(ini!=NULL){
+				ini +=sizeof("modoOutput=")-1;
+				if(ini[0]=='r'){
+					form1.tipo=0;
+					printf("Salida RS485 Standard\r\n");
+				}
+				if(ini[0]=='p'){
+					form1.tipo=1;
+					printf("Salida a pulsos\r\n");
+				}
+				if(ini[0]=='c'){
+					form1.tipo=2;
+					printf("Salida RS485 Chino\r\n");
+				}
+			}
 		set_form_flash(form1);
 		return true;
 }
