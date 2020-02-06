@@ -21,6 +21,7 @@ struct form_home{
 	uint16_t port;
 	uint64_t energia;
 	uint8_t tipo;
+	uint8_t slaveid;
 };
 TaskHandle_t http_socket;
 
