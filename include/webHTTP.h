@@ -20,7 +20,7 @@ struct form_home{
 	uint8_t max_sta;
 	uint16_t port;
 	uint64_t energia;
-	uint8_t tipo;
+	char tipo[7];
 	uint8_t slaveid;
 };
 TaskHandle_t http_socket;

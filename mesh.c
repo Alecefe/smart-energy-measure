@@ -1,4 +1,5 @@
 #include "include/mesh.h"
+#include "driver/gpio.h"
 #define CONFIG_IPV4
 static const char *MESH_TAG = "mesh_main";
 static uint8_t tx_buf[TX_SIZE] = { 0, };
@@ -7,8 +8,46 @@ static bool is_mesh_connected = false;
 static mesh_addr_t mesh_parent_addr;
 static int mesh_layer = -1;
 static const char *TCP_TAG = "TCP_SERVER";
-uint16_t port;
 
+uint8_t SLAVE_ID;
+uint8_t fconv=3200;
+uint16_t port;
+uint64_t energy_ini;
+tipo_de_medidor tipo;
+
+/****************************************/
+/**** Configuracion e inicializacion ****/
+/****************************************/
+
+tipo_de_medidor str2enum (const char *str)
+{    int j;
+     for (j = 0;  j < sizeof (conversion) / sizeof (conversion[0]);  ++j)
+         if (!strcmp (str, conversion[j].str))
+             return conversion[j].val;
+     ESP_LOGI(MESH_TAG,"Tipo no valido");
+     return enlace;
+}
+
+void config_gpio(){
+	/*Tipo de interrupcion*/
+	gpio_install_isr_service(ESP_INTR_FLAG_DEFAULT);// instala el servicio ISR con la configuración por defecto.
+	//Habilitacion de pines e interrupciones
+	gpio_pad_select_gpio(SALVAR);   //configuro el BOTON_SALVAR como un pin GPIO
+	gpio_set_direction(SALVAR, GPIO_MODE_DEF_INPUT);   // seleciono el BOTON_SALVAR como pin de entrada
+	gpio_isr_handler_add(SALVAR, guadado_en_flash, NULL); // añado el manejador para el servicio ISR
+	gpio_set_intr_type(SALVAR,GPIO_INTR_POSEDGE);  // habilito interrupción por flanco descendente (1->0)
+
+	gpio_pad_select_gpio(PULSOS);   //configuro el BOTON_SALVAR como un pin GPIO
+	gpio_set_direction(PULSOS, GPIO_MODE_DEF_INPUT);    // seleciono el PULSOS como pin de entrada
+	gpio_isr_handler_add(PULSOS, interrupcion_pulsos, NULL); // añado el manejador para el servicio ISR
+	gpio_set_intr_type(PULSOS,GPIO_INTR_POSEDGE);  // habilito interrupción por flanco descendente (1->0)
+	gpio_pad_select_gpio(LED_PAPA);
+	gpio_pad_select_gpio(RS485);
+	gpio_set_direction(LED_PAPA,GPIO_MODE_DEF_OUTPUT);
+	gpio_set_direction(RS485,GPIO_MODE_DEF_OUTPUT);
+}
+
+/********* Tareas del Root ************/
 
 void esp_mesh_tx_to_ext(void *arg){
 
@@ -18,30 +57,21 @@ void esp_mesh_tx_to_ext(void *arg){
 	data.size = sizeof(rx_buf);
 	data.proto = MESH_PROTO_BIN;
 	int flag = 0;
-
 	esp_err_t error;
 	char trama[tamBUFFER];
 
 	INT_VAL len;
 	while(esp_mesh_is_root()){
-
 		error = esp_mesh_recv(&from,&data,portMAX_DELAY,&flag,NULL,0);
-
 		if(error==ESP_OK ){
-
-
 			len.Val = rx_buf[4] + rx_buf[5] + 6;
-
 			for(int i = 0 ;i < len.Val ;i++){
 				trama[i] = (char)rx_buf[i];
 			}
-
 			for(int i = 0; i<len.Val;i++){
 				printf("trama[%d] = %02x\r\n",i,trama[i]);
 			}
-
 			send(men,trama,len.Val,0);
-
 		}
 }
 	ESP_LOGE(MESH_TAG,"Se elimino tarea TX EXT");
@@ -215,14 +245,17 @@ void esp_mesh_p2p_tx_main(void *Pa){
     vTaskDelete(NULL);
 }
 
-//Tareas de un Nodo
+
+/********* Tareas de un Nodo ************/
+
+/****************************/
+/**** Bus RS485 Standard ****/
+/****************************/
 
 void esp_mesh_p2p_rx_main(void *arg)
 	{
-
 		INT_VAL len;
 		INT_VAL CRC;
-
 	    esp_err_t err;
 	    mesh_addr_t from;
 	    mesh_data_t data;
@@ -230,73 +263,55 @@ void esp_mesh_p2p_rx_main(void *arg)
 	    data.data = rx_buf;
 	    data.size = sizeof(rx_buf);
 	    mesh_rx_pending_t pendientes,auxi={.toSelf=0};
-
 	    uint8_t trama[tamBUFFER];
 	    const unsigned char *aux = &trama[4];
 
 	    while (!esp_mesh_is_root()) {
-
 	    	printf("Esperando...\r\n");
-
 	    	err = esp_mesh_recv(&from,&data,portMAX_DELAY,&flag,NULL,0);
-
 	    	esp_mesh_get_rx_pending(&pendientes);
 			if(pendientes.toSelf!=auxi.toSelf){
 				printf("Pendientes = %d\r\n",pendientes.toSelf);
 				auxi.toSelf = pendientes.toSelf;
 			}
-
 	    	switch (err){
+				case ESP_OK: {
+					printf("Recibido por Mesh\r\n");
 
-	    	case ESP_OK: {
-	    		printf("Recibido por Mesh\r\n");
+					if(!esp_mesh_is_root()){
 
-	    		if(!esp_mesh_is_root()){
+					len.Val = rx_buf[4] + rx_buf[5];
 
-	    		len.Val = rx_buf[4] + rx_buf[5];
+					for(uint16_t i=0; i<len.Val ;i++){
+						trama[i+4] = rx_buf[6+i];
 
-    			for(uint16_t i=0; i<len.Val ;i++){
-    				trama[i+4] = rx_buf[6+i];
+						}
+						CRC.Val = CRC16(aux,len.Val);
+						len.Val = len.Val + 2;
+						trama[len.Val+2]=CRC.byte.LB;
+						trama[len.Val+3]=CRC.byte.HB;
+						trama[0] = rx_buf[0];
+						trama[1] = rx_buf[1];
+						trama[2] = len.byte.HB;
+						trama[3] = len.byte.LB;
+						xQueueSendToFront(TxRS485,&trama,portMAX_DELAY);
+					}
+				}
+				break;
+				case ESP_ERR_MESH_NOT_START: {
 
-    				}
+					ESP_LOGE(MESH_TAG,"Aun no esta Iniciada la Mesh\r\n");
 
-	    			CRC.Val = CRC16(aux,len.Val);
+				}
+				break;
+				case ESP_ERR_MESH_TIMEOUT:{
 
-	    			len.Val = len.Val + 2;
-
-	    			trama[len.Val+2]=CRC.byte.LB;
-	    			trama[len.Val+3]=CRC.byte.HB;
-
-	    			trama[0] = rx_buf[0];
-	    			trama[1] = rx_buf[1];
-	    			trama[2] = len.byte.HB;
-
-	    			trama[3] = len.byte.LB;
-
-
-
-	    			xQueueSendToFront(TxRS485,&trama,portMAX_DELAY);
-	    		}
-	    	}
-	    	break;
-
-	    	case ESP_ERR_MESH_NOT_START: {
-
-	    		ESP_LOGE(MESH_TAG,"Aun no esta Iniciada la Mesh\r\n");
-
-	    	}
-	    	break;
-
-	    	case ESP_ERR_MESH_TIMEOUT:{
-
-	    		ESP_LOGW(MESH_TAG,"Timeout Error\r\n");
-	    	}
-	    	break;
-
-	    	default:
-	    		ESP_ERROR_CHECK_WITHOUT_ABORT(err);
-
-	    	break;
+					ESP_LOGW(MESH_TAG,"Timeout Error\r\n");
+				}
+				break;
+				default:
+					ESP_ERROR_CHECK_WITHOUT_ABORT(err);
+				break;
 	    	}
 
 	    }
@@ -328,16 +343,10 @@ void bus_rs485(void *arg){
 				xQueueReceive(TxRS485,(uint8_t*)dataTx,portMAX_DELAY);
 				printf("Recibido en cola...\r\n");
 				txlen = dataTx[2]+dataTx[3];
-
-
 				txctrl = uart_write_bytes(uart1,(char *)aux,txlen);
 
 				if(txctrl>0){
-
 					ctrl_cola = xQueueReceive(RxRS485,(uint8_t*)tx_buf+4,pdMS_TO_TICKS(500));
-
-
-
 					if(ctrl_cola == pdTRUE){
 						tx_buf[0]=dataTx[0];
 						tx_buf[1]=dataTx[1];
@@ -348,11 +357,9 @@ void bus_rs485(void *arg){
 						tx_buf[5] = longitud.byte.LB;
 						tx_buf[4+longitud.Val] = NULL;
 						tx_buf[4+longitud.Val +1] = NULL;
-
 						for(int i =0; i < (longitud.Val +4);i++){
 							printf("tx_buf[%d] = %02x\r\n",i,tx_buf[i]);
 						}
-
 						esp_err_t err = esp_mesh_send(NULL,&dataMesh,MESH_DATA_P2P,NULL,0);
 						if(err == ESP_OK){
 							printf("Mandado\r\n");
@@ -367,7 +374,108 @@ void bus_rs485(void *arg){
 
 }
 
-//Eventos Internos
+/************************************/
+/**** Medidor de salida a pulsos ****/
+/************************************/
+
+/*Interrupcion de entrada de pulso*/
+void IRAM_ATTR interrupcion_pulsos (void* arg)
+{
+	xSemaphoreGiveFromISR(smfPulso,NULL);
+}
+/*Interrupcion asociada al guardado en flash*/
+void IRAM_ATTR guadado_en_flash(void* arg)
+{
+	xSemaphoreGiveFromISR(smfNVS,NULL);
+}
+/*Tarea de comunicacion P2P con el sistema*/
+void modbus_tcpip_pulsos(void *arg)
+{
+    esp_err_t err;
+    int flag = 0;
+    mesh_addr_t from;
+    mesh_data_t data_rx,data_tx;
+    data_rx.data = rx_buf;
+    data_rx.size = RX_SIZE;
+    data_tx.data = tx_buf;
+
+	#define MODBUS_ENERGY_REG_INIT_POS 0x18
+	#define MODBUS_ENERGY_REG_LEN 0x02
+    energytype_t energia;
+
+    while (1) {
+        err = esp_mesh_recv(&from, &data_rx, portMAX_DELAY, &flag, NULL, 0);
+        if (err == ESP_OK&&rx_buf[6]==SLAVE_ID&&rx_buf[7]==0x03&&rx_buf[8]==0x00&&rx_buf[9]==MODBUS_ENERGY_REG_INIT_POS&&rx_buf[11]==MODBUS_ENERGY_REG_LEN){
+
+        	xQueuePeek(Cuenta_de_pulsos,&(energia.tot),portMAX_DELAY);
+        	tx_buf[0] = rx_buf[0];
+        	tx_buf[1] = rx_buf[1];
+        	tx_buf[2] = 0x00;
+        	tx_buf[3] = 0x00;
+        	tx_buf[4] = 0x00; // len hb
+        	tx_buf[5] = 0x07; // len lb
+        	tx_buf[6] = SLAVE_ID; //SlaveID
+        	tx_buf[7] = 0x03;
+        	tx_buf[8] = 0x08; //byte count
+        	tx_buf[9] = energia.u8.llll8;
+        	tx_buf[10] = energia.u8.lll8;
+        	tx_buf[11] = energia.u8.ll8;
+        	tx_buf[12] = energia.u8.l8;
+        	tx_buf[13] = energia.u8.h8;
+        	tx_buf[14] = energia.u8.hh8;
+        	tx_buf[15] = energia.u8.hhh8;
+        	tx_buf[16] = energia.u8.hhhh8;
+        	err = esp_mesh_send(&from,&data_tx, &flag, NULL, 0);
+        }
+    }
+    vTaskDelete(NULL);
+}
+/*Tarea de guardado en flash de pulsos*/
+void nvs_pulsos(void *arg){
+
+		/*Variables para conteo de reinicios*/
+		nvs_handle_t ctrl_pulsos;
+		uint64_t pulsos;
+		/* NVS open*/
+		esp_err_t err = nvs_open("storage", NVS_READWRITE, &ctrl_pulsos);
+	while(1){
+			err = nvs_open("storage", NVS_READWRITE, &ctrl_pulsos);
+			if (err != ESP_OK) {
+				printf("Error (%s) abriendo el NVS!\n", esp_err_to_name(err));
+			}else{
+			xSemaphoreTake(smfNVS,portMAX_DELAY);
+			xQueuePeek(Cuenta_de_pulsos,&pulsos,portMAX_DELAY);
+			energy_ini = round(pulsos/fconv);
+			err = nvs_set_u64(ctrl_pulsos, "energy", energy_ini);
+			printf((err != ESP_OK) ? "Error pulse counter set!\n" : "Done\n");
+			err = nvs_commit(ctrl_pulsos);
+			printf((err != ESP_OK) ? "Error in pulse counter commit!\n" : "Done\n");
+			close(ctrl_pulsos);
+			}
+			}
+			ESP_LOGE(MESH_TAG,"La tarea de guardado en flash de pulsos fue eliminada");
+			vTaskDelete(NULL);
+}
+/*Tarea del contador de pulsos*/
+void conteo_pulsos (void *arg){
+
+	uint64_t contador;
+	contador = round(energy_ini/fconv);
+
+	while(1){
+		xSemaphoreTake(smfPulso,portMAX_DELAY);
+		contador++;
+		printf("Contador: %llu\r\n",contador);
+		xQueueOverwrite(Cuenta_de_pulsos,&contador);
+	}
+	ESP_LOGE(MESH_TAG,"La tarea de conteo de pulsos fue eliminada");
+	vTaskDelete(NULL);
+}
+
+/********************************/
+/**** Manejadores de eventos ****/
+/********************************/
+
 void mesh_event_handler(void *arg, esp_event_base_t event_base,
                         int32_t event_id, void *event_data)
 {
@@ -440,9 +548,23 @@ void mesh_event_handler(void *arg, esp_event_base_t event_base,
             tcpip_adapter_dhcpc_start(TCPIP_ADAPTER_IF_STA);
         }
         else{
-        	iniciarUART();
-        	xTaskCreatePinnedToCore(esp_mesh_p2p_rx_main, "Rx_child", 3072*2, NULL, 5, NULL,0);
-        	xTaskCreatePinnedToCore(bus_rs485, "Rx_RS485", 3072*3, NULL, 5, NULL, 1);
+        	switch(tipo){
+        		case(rs485):
+                	xTaskCreatePinnedToCore(esp_mesh_p2p_rx_main, "Rx_child", 3072*2, NULL, 5, NULL,0);
+                	xTaskCreatePinnedToCore(bus_rs485, "Rx_RS485", 3072*3, NULL, 5, NULL, 1);
+        		break;
+        		case(pulsos):
+					xTaskCreatePinnedToCore(modbus_tcpip_pulsos,"Commun. P2P",3072*2,NULL,5,NULL,0);
+        			xTaskCreatePinnedToCore(nvs_pulsos,"Guardar pulsos en flash",3072*2,NULL,5,NULL,1);
+        			xTaskCreatePinnedToCore(conteo_pulsos,"Contador de pulsos",3072*2,NULL,5,NULL,1);
+        		break;
+        		case(chino):
+					xTaskCreatePinnedToCore(esp_mesh_p2p_rx_main, "Rx_child", 3072*2, NULL, 5, NULL,0);
+					xTaskCreatePinnedToCore(bus_rs485, "Rx_RS485", 3072*3, NULL, 5, NULL, 1);
+        		break;
+        		case(enlace):
+        		break;
+        	}
         }
     }
     break;
@@ -573,67 +695,72 @@ void ip_event_handler(void *arg, esp_event_base_t event_base,
     xTaskCreatePinnedToCore(esp_mesh_tx_to_ext, "TX_EXT", 3072*2, NULL, 5, NULL, 0);
 }
 
+/*Inicio Mesh*/
+
 void mesh_init(struct form_home form){
 	esp_err_t err;
 	port = form.port;
+	tipo = str2enum(form.tipo);
+	SLAVE_ID = form.slaveid;
+	energy_ini = form.energia;
+
 	RxSocket = xQueueCreate(5,128);
 	TxRS485 = xQueueCreate(5,128);
 	RxlenRS485 = xQueueCreate(5,2);
 	TCPsend = xQueueCreate(5,128);
 
-   gpio_pad_select_gpio(LED_PAPA);
-   gpio_pad_select_gpio(RS485);
-   gpio_set_direction(LED_PAPA,GPIO_MODE_DEF_OUTPUT);
-   gpio_set_direction(RS485,GPIO_MODE_DEF_OUTPUT);
+	smfPulso = xSemaphoreCreateBinary();
+	smfNVS = xSemaphoreCreateBinary();
+	Cuenta_de_pulsos = xQueueCreate(1,8);
+
+	config_gpio();
     /*  tcpip initialization */
     tcpip_adapter_init();
     /* for mesh
      * stop DHCP server on softAP interface by default
      * stop DHCP client on station interface by default
      * */
-   tcpip_adapter_dhcps_stop(TCPIP_ADAPTER_IF_AP);
-   tcpip_adapter_dhcpc_stop(TCPIP_ADAPTER_IF_STA);
-    /*  event initialization */
-   err = esp_event_loop_create_default();
-   if(err!=ESP_OK){
+    tcpip_adapter_dhcps_stop(TCPIP_ADAPTER_IF_AP);
+    tcpip_adapter_dhcpc_stop(TCPIP_ADAPTER_IF_STA);
+	/*  event initialization */
+    err = esp_event_loop_create_default();
+    if(err!=ESP_OK){
 	   printf("La cagadota");
-   }
-    /*  wifi initialization */
-    wifi_init_config_t config = WIFI_INIT_CONFIG_DEFAULT();
-    esp_wifi_init(&config);
-    err = esp_event_handler_register(IP_EVENT, IP_EVENT_STA_GOT_IP, &ip_event_handler, NULL);
-    if(err!=ESP_OK){
-    	printf("La cagada 1\r\n");
     }
-    esp_wifi_set_mode(WIFI_MODE_STA);
-    esp_wifi_set_storage(WIFI_STORAGE_FLASH);
-    esp_wifi_set_ps(WIFI_PS_NONE);
-    esp_mesh_set_6m_rate(false);
-    esp_wifi_start();
-    /*  mesh initialization */
-    esp_mesh_init();
-    err = esp_event_handler_register(MESH_EVENT, ESP_EVENT_ANY_ID, &mesh_event_handler, NULL);
-    if(err!=ESP_OK){
-        	printf("La cagada 2\r\n");
-        }
-    esp_mesh_set_max_layer(form.max_layer);
-    esp_mesh_set_vote_percentage(1);
-    esp_mesh_set_ap_assoc_expire(10);
-    mesh_cfg_t cfg = MESH_INIT_CONFIG_DEFAULT();
-    /* mesh ID */
-    memcpy((uint8_t *) &cfg.mesh_id, form.mesh_id, 6);
-    /* router */
-    cfg.channel = CONFIG_MESH_CHANNEL;
-    cfg.router.ssid_len = strlen(form.ssid);
-    memcpy((uint8_t *) &cfg.router.ssid, form.ssid, cfg.router.ssid_len);
-    memcpy((uint8_t *) &cfg.router.password, form.password,
-           strlen(form.password));
-    /* mesh softAP */
-    esp_mesh_set_ap_authmode(CONFIG_MESH_AP_AUTHMODE);
-    cfg.mesh_ap.max_connection = form.max_sta;
-    memcpy((uint8_t *) &cfg.mesh_ap.password, form.meshappass,
-           strlen(form.meshappass));
-    esp_mesh_set_config(&cfg);
-    /* mesh start */
-    esp_mesh_start();
+	/*  wifi initialization */
+	wifi_init_config_t config = WIFI_INIT_CONFIG_DEFAULT();
+	esp_wifi_init(&config);
+	err = esp_event_handler_register(IP_EVENT, IP_EVENT_STA_GOT_IP, &ip_event_handler, NULL);
+	if(err!=ESP_OK){
+		printf("La cagada 1\r\n");
+	}
+	esp_wifi_set_mode(WIFI_MODE_STA);
+	esp_wifi_set_storage(WIFI_STORAGE_FLASH);
+	esp_wifi_set_ps(WIFI_PS_NONE);
+	esp_mesh_set_6m_rate(false);
+	esp_wifi_start();
+	/*  mesh initialization */
+	esp_mesh_init();
+	err = esp_event_handler_register(MESH_EVENT, ESP_EVENT_ANY_ID, &mesh_event_handler, NULL);
+	if(err!=ESP_OK){
+			printf("La cagada 2\r\n");
+	}
+	esp_mesh_set_max_layer(form.max_layer);
+	esp_mesh_set_vote_percentage(1);
+	esp_mesh_set_ap_assoc_expire(10);
+	mesh_cfg_t cfg = MESH_INIT_CONFIG_DEFAULT();
+	/* mesh ID */
+	memcpy((uint8_t *) &cfg.mesh_id, form.mesh_id, 6);
+	/* router */
+	cfg.channel = CONFIG_MESH_CHANNEL;
+	cfg.router.ssid_len = strlen(form.ssid);
+	memcpy((uint8_t *) &cfg.router.ssid, form.ssid, cfg.router.ssid_len);
+	memcpy((uint8_t *) &cfg.router.password, form.password,strlen(form.password));
+	/* mesh softAP */
+	esp_mesh_set_ap_authmode(CONFIG_MESH_AP_AUTHMODE);
+	cfg.mesh_ap.max_connection = form.max_sta;
+	memcpy((uint8_t *) &cfg.mesh_ap.password, form.meshappass,strlen(form.meshappass));
+	esp_mesh_set_config(&cfg);
+	/* mesh start */
+	esp_mesh_start();
 }

@@ -1,6 +1,5 @@
 #include "include/CRC.h"
 
-
 uint16_t CRC16 (const unsigned char *nData, uint16_t wLength)
 {
 	static const uint16_t wCRCTable[] = {

@@ -105,25 +105,24 @@ static void uart_chino(void *arg){
 }
 
 void iniciarUART()
-{			                                                                        //
-
-	// Configuraci�n para el UART 1 -------------------------------------------------------//
-	uart_config_t configUART1 = {                                                          //
-	    .baud_rate = 9600,                                                               //
-	    .data_bits = UART_DATA_8_BITS,                                                     //
-	    .parity = UART_PARITY_DISABLE,                                                     //
-	    .stop_bits = UART_STOP_BITS_1,                                                     //                                                     //
+{
+	// Configuracion para el UART 1 -----------------------------------------------------//
+	uart_config_t configUART1 = {
+	    .baud_rate = 9600,
+	    .data_bits = UART_DATA_8_BITS,
+	    .parity = UART_PARITY_DISABLE,
+	    .stop_bits = UART_STOP_BITS_1,
 	};
 	//
-	ESP_ERROR_CHECK(uart_param_config(uart1, &configUART1));                                                //
+	ESP_ERROR_CHECK(uart_param_config(uart1, &configUART1));
 	// Se configuran los terminales para los UART -----------------------------------------//
-	ESP_ERROR_CHECK(uart_set_pin(uart1, Tx1, Rx1, RS485, UART_PIN_NO_CHANGE));                 //
-	// Se instalan los controladores UART de la configuraci�n anterior --------------------//
-	uart_driver_install(uart1, BUF_SIZE * 2, BUF_SIZE * 2, 20, &uart0_queue, 0);                          //
-	// Se coloca el modo rs485                                                           //
+	ESP_ERROR_CHECK(uart_set_pin(uart1, Tx1, Rx1, RS485, UART_PIN_NO_CHANGE));
+	// Se instalan los controladores UART de la configuracion anterior ------------------//
+	uart_driver_install(uart1, BUF_SIZE * 2, BUF_SIZE * 2, 20, &uart0_queue, 0);
+	// Se coloca el modo rs485
 	ESP_ERROR_CHECK(uart_set_mode(uart1, UART_MODE_RS485_HALF_DUPLEX));
 	RxRS485 = xQueueCreate(5,128);
-  	// xTaskCreate(uart_event_task, "uart_event_task", 2048, NULL, 5, NULL);
-	xTaskCreate(uart_chino, "UART CHINO", 2048, NULL, 5, NULL);
+  	if(tipo == rs485) xTaskCreate(uart_event_task, "uart_event_task", 2048, NULL, 5, NULL);
+  	if(tipo == chino) xTaskCreate(uart_chino, "UART CHINO", 2048, NULL, 5, NULL);
 
 	}

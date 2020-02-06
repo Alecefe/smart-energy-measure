@@ -503,23 +503,6 @@ bool Llenar_form_home(char * p, struct form_home form1){
 					printf("Medicion inicial:%"PRIu64"kWh\r\n",form1.energia);
 				}
 			}
-			/*Extrayendo Modo Output*/
-			ini = strstr(p,"modoOutput=");
-			if(ini!=NULL){
-				ini +=sizeof("modoOutput=")-1;
-				if(ini[0]=='r'){
-					form1.tipo=0;
-					printf("Salida RS485 Standard\r\n");
-				}
-				if(ini[0]=='p'){
-					form1.tipo=1;
-					printf("Salida a pulsos\r\n");
-				}
-				if(ini[0]=='c'){
-					form1.tipo=2;
-					printf("Salida RS485 Chino\r\n");
-				}
-			}
 			/*Extrayendo Slave IDl*/
 			ini=strstr(p,"slaveid=");
 			if(ini!=NULL){
