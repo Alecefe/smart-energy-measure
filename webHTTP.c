@@ -1,5 +1,5 @@
 /*********************************************************************************/
-#include "webHTTP.h"
+#include "include/webHTTP.h"
 const char *nvs_tag = "NVS";
 const char *http_server = "HTTP SERVER";
 
@@ -77,7 +77,7 @@ const static char cuerpoHTML_INI[] =
             "</aside>"
             "<div id=\"FormHome\" style=\"height: 80vh;position:relative;left: 10%;top: 5%;margin: 0 auto;display:inline-block;text-align: center;display: block;padding: 2%;width: 25%;border-radius: 2% 2% 2% 2%; border: 5px ridge #000000; background-color: white;\">"
                     "<label style=\"font-weight: bold;\">ESP32 Node Configuration</label>"
-                    "<form name=\"FormConfig\" style=\"margin: 10%;\">"
+                    "<form name=\"FormConfig\" style=\"margin: 10%;id=\"init\"\">"
                         "<label id=\"SSID\" >SSID:</label><br>"
                         "<input class=\"opcion\"type=\"text\" name=\"ssid\" required><br>"
                         "<label >Password:</label><br>"
@@ -92,9 +92,14 @@ const static char cuerpoHTML_INI[] =
                         "<input class=\"opcion\"type=\"number\" name=\"estaciones\" min=\"1\" max=\"9\"placeholder=\"Between 1 - 9\"required><br>"
                         "<label >Puerto (Socket):</label><br>"
                         "<input class=\"opcion\"type=\"number\" name=\"port\" min=\"1\" max=\"65535\" placeholder=\"Between 0 - 65536\"><br>"
-                        "<input class=\"opcion\"type=\"submit\" name=\"submit\" value=\"Submit\"style=\"margin:10px;\">"
+						"<select name = \"modowifi\">"
+						"<option value = \"rs485\">Salida RS485</option>"
+						"<option value = \"pulsos\">Salida por pulsos</option>"
+						"</select><br>"
+						"<input class=\"opcion\"type=\"submit\" name=\"submit\" value=\"Submit\"style=\"margin:10px;\">"
                         "<input class=\"opcion\"type=\"button\" name=\"enter\" value=\"Cancel\"style=\"margin:10px;\">"
-                    "</form>"
+
+                    	"</form>"
 					"<form name=\"Reset ESP\">"
 						"<input type=\"submit\" id=\"restart\" style=\"padding: 10%;\" name=\"reinicio\" value=\"Start Mesh\"runat=\"server\"formmethod=\"post\">"
 					"</form>"

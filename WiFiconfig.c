@@ -1,9 +1,10 @@
 /**************************************************************************/
-#include "WiFiconfig.h"
+#include "include/WiFiconfig.h"
 
 // Manejador de eventos --------------------------------------------------//
-static esp_err_t ManejadorEventos(void *ctx, system_event_t *evento){
-	switch(evento->event_id){
+static void ManejadorEventos(void* arg, esp_event_base_t event_base,
+        int32_t event_id, void* event_data){
+	switch(event_id){
 	    case SYSTEM_EVENT_STA_START:
 	        esp_wifi_connect();
 	        break;
@@ -16,14 +17,15 @@ static esp_err_t ManejadorEventos(void *ctx, system_event_t *evento){
 	    default:
 	        break;
 	    }
-	return ESP_OK;
 }
 // Funcion para configurar el WiFi como estacion -------------------------//
+
 void iniciar_wifi(void){
 	tcpip_adapter_init();
-	    esp_event_loop_init(ManejadorEventos, NULL);
+	ESP_ERROR_CHECK(esp_event_loop_create_default());
 	    wifi_init_config_t cfg = WIFI_INIT_CONFIG_DEFAULT();
 	    esp_wifi_init(&cfg);
+	    ESP_ERROR_CHECK(esp_event_handler_register(WIFI_EVENT, ESP_EVENT_ANY_ID, &ManejadorEventos, NULL));
 	    esp_wifi_set_storage(WIFI_STORAGE_RAM);
 	    wifi_config_t wifi_config = {
 	        .ap = {
