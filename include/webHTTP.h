@@ -19,6 +19,8 @@ struct form_home{
 	uint8_t max_layer;
 	uint8_t max_sta;
 	uint16_t port;
+	uint64_t energia;
+	uint8_t tipo;
 };
 TaskHandle_t http_socket;
 
