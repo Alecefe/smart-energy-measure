@@ -19,6 +19,7 @@ void app_main(){
 		ESP_LOGW(MESH_INIT,"MESH MAX STA = %d",form.max_sta);
 		ESP_LOGW(MESH_INIT,"MESH PORT = %d",form.port);
 		ESP_LOGW(MESH_INIT,"MESH METER INITIAL ENERGY = %"PRIu64,form.energia);
+		ESP_LOGW(MESH_INIT,"MESH SLAVE ID = %d",form.slaveid);
 		ESP_LOGW(MESH_INIT,"Tipo de Medidor en flash: %s",((form.tipo)==0)? "RS485 Standard":((form.tipo)==1)? "Pulse":"RS485 LogoMeter");
 		mesh_init(form);
 	}

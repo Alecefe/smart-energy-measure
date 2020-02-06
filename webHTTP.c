@@ -99,6 +99,8 @@ const static char cuerpoHTML_INI[] =
 						"<option value = \"pulsos\">Pulse Output</option>"
 						"<option value = \"chino\">LogoMeter RS485 Output</option>"
 						"</select><br>"
+						"<label >Slave ID:</label><br>"
+						"<input class=\"opcion\"type=\"number\" name=\"slaveid\" placeholder=\"Id for pulse meter\"><br>"
 						"<input class=\"opcion\"type=\"submit\" name=\"submit\" value=\"Submit\"style=\"margin:10px;\">"
                         "<input class=\"opcion\"type=\"button\" name=\"enter\" value=\"Cancel\"style=\"margin:10px;\">"
 
@@ -143,6 +145,8 @@ void set_form_flash(struct form_home form){
 		nvs_set_u64(ctrl_flash,"energy",form.energia);
 
 		nvs_set_u8(ctrl_flash,"tipo",form.tipo);
+
+		nvs_set_u8(ctrl_flash,"slaveid",form.slaveid);
 
 		err = nvs_commit(ctrl_flash);
 	}
@@ -271,6 +275,18 @@ void get_form_flash(struct form_home *form){
 				break;
 				case ESP_ERR_NVS_NOT_FOUND:
 					ESP_LOGI(nvs_tag,"Medicion de energia en flash: none");
+				break;
+				default:
+					printf("Error (%s) opening NVS handle!\n", esp_err_to_name(err));
+				break;
+			}
+			nvs_get_u8(ctrl_prueba,"slaveid",&(form->slaveid));
+			switch(err){
+				case ESP_OK:
+					ESP_LOGI(nvs_tag,"Slave ID en medidor a pulsos en flash: %d",form->slaveid);
+				break;
+				case ESP_ERR_NVS_NOT_FOUND:
+					ESP_LOGI(nvs_tag,"Slave ID en flash: none");
 				break;
 				default:
 					printf("Error (%s) opening NVS handle!\n", esp_err_to_name(err));
@@ -502,6 +518,24 @@ bool Llenar_form_home(char * p, struct form_home form1){
 				if(ini[0]=='c'){
 					form1.tipo=2;
 					printf("Salida RS485 Chino\r\n");
+				}
+			}
+			/*Extrayendo Slave IDl*/
+			ini=strstr(p,"slaveid=");
+			if(ini!=NULL){
+				ini+=sizeof("slaveid=")-1;
+				char slaveid[3];
+				count = 0;
+				int auxSlave;
+				for(int i = 0; ini[i]!='&';i++){
+					slaveid[i]=ini[i];
+					count++;
+				}
+				slaveid[count]=0;
+				auxSlave = atoi(slaveid);
+				if(auxSlave>=0){
+					form1.slaveid =(uint8_t)auxSlave;
+					printf("Slave ID:%d\r\n",form1.slaveid);
 				}
 			}
 		set_form_flash(form1);
