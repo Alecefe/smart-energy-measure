@@ -37,15 +37,19 @@ const static char cabeceraHTML[] = "<head>"
 		"</head>";
 
 const static char cuerpoALERTAok[] ="<script>"
-				"alert('Datos almacenados correctamente')"
+				"alert('Data stored successfully')"
+				"</script>";
+
+const static char cuerpoALERTApaga[] ="<script>"
+				"alert('Please Call Estelio in order to activate this section')"
 				"</script>";
 
 const static char cuerpoALERTAnok[] ="<script>"
-				"alert('Error en los datos')"
+				"alert('Data corrupted')"
 				"</script>";
 
 const static char cuerpoALERTAintro[] ="<script>"
-				"alert('Usuario o Contraseña Incorrecto')"
+				"alert('User or Password Incorrect)"
 				"</script>";
 const static char cuerpoReinicio[] ="<script>"
 				"alert('ESP32 Mesh Start')"
@@ -71,8 +75,7 @@ const static char cuerpoHTML_INI[] =
                             "<a href=\"mesh\" class=\"active\">Mesh Configuration</a>"
                             "<a href=\"modbus\">MODBUS Parameters</a>"
                             "<a href=\"mqtt\">MQTT Parameters</a>"
-                            "<a href=\"#\">Link 3</a>"
-                            "<a href=\"#\">Link 4</a>"
+                            "<a href=\"about\">About us</a>"
                         "</div>"
             "</aside>"
             "<div id=\"FormHome\" style=\"padding=10%;position:relative;left: 10%;top: 5%;margin: 0 auto;display:inline-block;text-align: center;display: block;padding: 2%;width: 25%;border-radius: 2% 2% 2% 2%; border: 5px ridge #000000; background-color: white;\">"
@@ -112,8 +115,7 @@ const static char cuerpoHTML_MODBUS[] =
                             "<a href=\"mesh\" >Mesh Configuration</a>"
                             "<a href=\"modbus\" class=\"active\">MODBUS Parameters</a>"
                             "<a href=\"mqtt\">MQTT Parameters</a>"
-                            "<a href=\"#\">Link 3</a>"
-                            "<a href=\"#\">Link 4</a>"
+                            "<a href=\"about\">About us</a>"
                         "</div>"
             "</aside>"
             "<div id=\"FormHome\" style=\"padding=10%;position:relative;left: 10%;top: 5%;margin: 0 auto;display:inline-block;text-align: center;display: block;padding: 2%;width: 25%;border-radius: 2% 2% 2% 2%; border: 5px ridge #000000; background-color: white;\">"
@@ -644,6 +646,15 @@ static void WEBlocal(struct netconn *conexion,struct netconn *close){
 			netconn_write(conexion, cuerpoHTML_INI, sizeof(cuerpoHTML_INI)-1, NETCONN_NOCOPY);
 			netconn_write(conexion, cierraHTML, sizeof(cierraHTML)-1, NETCONN_NOCOPY);
 	    }
+
+	    if (strncmp(buffer,"GET /mqtt HTTP/1.1",sizeof("GET /mqtt HTTP/1.1")-1)==0){
+			netconn_write(conexion, respuestaHTTP, sizeof(respuestaHTTP)-1,NETCONN_NOCOPY);
+			netconn_write(conexion, abreHTML, sizeof(abreHTML)-1, NETCONN_NOCOPY);
+			netconn_write(conexion, cabeceraHTML, sizeof(cabeceraHTML)-1, NETCONN_NOCOPY);
+			netconn_write(conexion, cuerpoHTML_INI, sizeof(cuerpoHTML_INI)-1, NETCONN_NOCOPY);
+			netconn_write(conexion, cierraHTML, sizeof(cierraHTML)-1, NETCONN_NOCOPY);
+			netconn_write(conexion, cuerpoALERTApaga, sizeof(cuerpoALERTApaga)-1, NETCONN_NOCOPY);
+		}
 
 	    if (strncmp(buffer,"GET /modbus?conversion",sizeof("GET /modbus?conversion")-1)==0){
 	    	for(int i=0;buffer[i]!=0;i++){

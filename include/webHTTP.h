@@ -11,6 +11,7 @@
 // Funcion prototipo RTOS ----------------------------------------//
 void tareaSOCKET(void *P);
 #endif
+
 struct form_home{
 	char ssid[20];
 	char password[20];
