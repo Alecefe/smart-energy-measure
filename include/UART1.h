@@ -1,3 +1,5 @@
+#ifndef MAIN_UART1_H_
+#define MAIN_UART1_H_
 #include <stdio.h>
 #include "esp_mesh.h"
 #include "esp_mesh_internal.h"
@@ -37,3 +39,4 @@ typedef union{
 //static void uart_event_task(void *pvParameters);
 
 void iniciarUART();
+#endif

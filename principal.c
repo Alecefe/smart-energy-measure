@@ -8,6 +8,7 @@ void app_main(){
 	nvs_flash_init();
 	struct form_home form;
 	get_form_flash(&form);
+
 	if(gpio_get_level(PIN_CONFIG_1)==0){
 		xTaskCreatePinnedToCore(&tareaSOCKET,"SOCKET_HTTP",Pila*3,NULL,3,&http_socket,1);
 	}else{
@@ -20,8 +21,8 @@ void app_main(){
 		ESP_LOGW(MESH_INIT,"MESH PORT = %d",form.port);
 		ESP_LOGW(MESH_INIT,"MESH METER INITIAL ENERGY = %"PRIu64"kWh",form.energia);
 		ESP_LOGW(MESH_INIT,"MESH SLAVE ID = %d",form.slaveid);
-		ESP_LOGW(MESH_INIT,"Tipo de Medidor en flash: %s",form.tipo);
-		ESP_LOGW(MESH_INIT,"Factor de conversion en flash: %d imp/kWh",form.conversion);
+		ESP_LOGW(MESH_INIT,"Type of Meter: %s",form.tipo);
+		ESP_LOGW(MESH_INIT,"Conversion Factor: %d imp/kWh",form.conversion);
 		mesh_init(form);
 	}
 }
