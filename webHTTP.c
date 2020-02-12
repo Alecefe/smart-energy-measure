@@ -1,5 +1,6 @@
 /*********************************************************************************/
 #include "include/webHTTP.h"
+#include "math.h"
 const char *nvs_tag = "NVS";
 const char *http_server = "HTTP SERVER";
 
@@ -548,19 +549,42 @@ bool Llenar_form_home(char * p, struct form_home form1){
 bool Llenar_form_modbus(char *p,struct form_home form){
 	char *ini;
 	int count;
+	/*Extrayendo Factor de Conversion*/
+	ini=strstr(p,"conversion=");
+	if(ini!=NULL){
+		ini+=sizeof("conversion=")-1;
+		char conversion[5];
+		count = 0;
+		int cont;
+		for(int i = 0; ini[i]!='&';i++){
+			conversion[i]=ini[i];
+			count++;
+		}
+		conversion[count]=0;
+		cont = atoi(conversion);
+		if(cont>=0){
+			form.conversion =(uint16_t)cont;
+			printf("Factor de conversion: %d imp/kWh\r\n",form.conversion);
+		}else{
+			return false;
+		}
+	}
 	/*Extrayendo Medida Inicial*/
 	ini=strstr(p,"energia=");
 	if(ini!=NULL){
 		ini+=sizeof("energia=")-1;
 		char energy[]="";
+		float backup_f;
 		uint64_t backup=0;
 		for(int i = 0; ini[i]!='&';i++){
 			energy[i]=ini[i];
 		}
-		backup = atoi(energy);
+		backup_f = atof(energy);
+		printf("Medicion Energia:%.4fkWh\r\n",backup_f);
+		backup = round(backup_f*form.conversion);
 		if(backup>=0){
 			form.energia = backup;
-			printf("Medicion inicial:%"PRIu64"kWh\r\n",form.energia);
+			printf("Medicion Pulsos:%"PRIu64"\r\n",form.energia);
 		}
 	}
 	/*Extrayendo Modo Output*/
@@ -593,26 +617,6 @@ bool Llenar_form_modbus(char *p,struct form_home form){
 			return false;
 		}
 	}
-	/*Extrayendo Factor de Conversion*/
-		ini=strstr(p,"conversion=");
-		if(ini!=NULL){
-			ini+=sizeof("conversion=")-1;
-			char conversion[5];
-			count = 0;
-			int cont;
-			for(int i = 0; ini[i]!='&';i++){
-				conversion[i]=ini[i];
-				count++;
-			}
-			conversion[count]=0;
-			cont = atoi(conversion);
-			if(cont>=0){
-				form.conversion =(uint16_t)cont;
-				printf("Factor de conversion: %d imp/kWh\r\n",form.conversion);
-			}else{
-				return false;
-			}
-		}
 	set_form_flash_modbus(form);
 	return true;
 }

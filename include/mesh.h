@@ -13,7 +13,7 @@
 #include "driver/timer.h"
 #include "math.h"
 
-#define PULSOS 23
+#define PULSOS 0//23
 #define SALVAR 22
 #define RS485 21
 #define LED_PAPA 2
@@ -23,8 +23,9 @@
 #define ESP_INTR_FLAG_DEFAULT 0
 #define CONFIG_MESH_AP_AUTHMODE WIFI_AUTH_WPA2_PSK
 #define CONFIG_MESH_CHANNEL 0
-#define MODBUS_ENERGY_REG_INIT_POS 0x18
-#define MODBUS_ENERGY_REG_LEN 0x02
+#define MODBUS_ENERGY_REG_INIT_POS_H (0x00)
+#define MODBUS_ENERGY_REG_INIT_POS_L (0x18)
+#define MODBUS_ENERGY_REG_LEN (0x04)
 
 /*******************************************************
  *                Variable Definitions
