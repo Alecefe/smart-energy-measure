@@ -4,6 +4,7 @@
 static const char *MESH_INIT = "MESH_INIT";
 
 void app_main(){
+
 	config_gpio();
 	nvs_flash_init();
 	struct form_home form;
@@ -19,7 +20,7 @@ void app_main(){
 		ESP_LOGW(MESH_INIT,"MESH MAX LAYER = %d",form.max_layer);
 		ESP_LOGW(MESH_INIT,"MESH MAX STA = %d",form.max_sta);
 		ESP_LOGW(MESH_INIT,"MESH PORT = %d",form.port);
-		ESP_LOGW(MESH_INIT,"MESH METER INITIAL ENERGY = %"PRIu64"kWh",form.energia);
+		ESP_LOGW(MESH_INIT,"MESH METER INITIAL ENERGY = %"PRIu64"pulsos",form.energia);
 		ESP_LOGW(MESH_INIT,"MESH SLAVE ID = %d",form.slaveid);
 		ESP_LOGW(MESH_INIT,"Type of Meter: %s",form.tipo);
 		ESP_LOGW(MESH_INIT,"Conversion Factor: %d imp/kWh",form.conversion);

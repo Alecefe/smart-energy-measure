@@ -11,7 +11,7 @@ static const char *MESH_TAG = "mesh_main";
 static const char *TCP_TAG = "TCP_SERVER";
 
 uint8_t SLAVE_ID;
-uint16_t fconv = 3200;
+uint16_t fconv;
 uint16_t port;
 uint64_t energy_ini;
 SemaphoreHandle_t smfPulso = NULL;
@@ -121,7 +121,7 @@ tipo_de_medidor str2enum (const char *str)
 
 void config_gpio_pulsos(tipo_de_medidor tipo){
 
-	if(tipo==1){
+	if(tipo==pulsos){
 		ESP_LOGI(MESH_TAG,"Configurando GPIO para medidor tipo pulsos");
 		//Tipo de interrupcion
 		gpio_install_isr_service(ESP_INTR_FLAG_DEFAULT);// instala el servicio ISR con la configuración por defecto.
@@ -482,12 +482,18 @@ void modbus_tcpip_pulsos(void *arg)
     data_rx.data = rx_buf;
     data_rx.size = RX_SIZE;
     data_tx.data = tx_buf;
+    data_tx.size = TX_SIZE;
 
     energytype_t energia;
 
-    while (1) {
+    while (!esp_mesh_is_root()) {
         err = esp_mesh_recv(&from, &data_rx, portMAX_DELAY, &flag, NULL, 0);
-        if (err == ESP_OK&&rx_buf[6]==SLAVE_ID&&rx_buf[7]==0x03&&rx_buf[8]==0x00&&rx_buf[9]==MODBUS_ENERGY_REG_INIT_POS&&rx_buf[11]==MODBUS_ENERGY_REG_LEN){
+
+        if ((err == ESP_OK)&&(rx_buf[6]==SLAVE_ID)&&(rx_buf[7]==0x03)
+        		&&(rx_buf[8]==MODBUS_ENERGY_REG_INIT_POS_H)
+				&&(rx_buf[9]==MODBUS_ENERGY_REG_INIT_POS_L)
+				&&(rx_buf[11]==MODBUS_ENERGY_REG_LEN))
+        {
 
         	xQueuePeek(Cuenta_de_pulsos,&(energia.tot),portMAX_DELAY);
         	tx_buf[0] = rx_buf[0];
@@ -495,19 +501,22 @@ void modbus_tcpip_pulsos(void *arg)
         	tx_buf[2] = 0x00;
         	tx_buf[3] = 0x00;
         	tx_buf[4] = 0x00; // len hb
-        	tx_buf[5] = 0x07; // len lb
+        	tx_buf[5] = 0x0b; // len lb
         	tx_buf[6] = SLAVE_ID; //SlaveID
         	tx_buf[7] = 0x03;
         	tx_buf[8] = 0x08; //byte count
-        	tx_buf[9] = energia.u8.llll8;
-        	tx_buf[10] = energia.u8.lll8;
-        	tx_buf[11] = energia.u8.ll8;
-        	tx_buf[12] = energia.u8.l8;
-        	tx_buf[13] = energia.u8.h8;
-        	tx_buf[14] = energia.u8.hh8;
-        	tx_buf[15] = energia.u8.hhh8;
-        	tx_buf[16] = energia.u8.hhhh8;
-        	err = esp_mesh_send(&from,&data_tx, flag, NULL, 0);
+        	tx_buf[9] = energia.u8.lll8;
+        	tx_buf[10] = energia.u8.llll8;
+        	tx_buf[11] = energia.u8.l8;
+        	tx_buf[12] = energia.u8.ll8;
+        	tx_buf[13] = energia.u8.hh8;
+        	tx_buf[14] = energia.u8.h8;
+        	tx_buf[15] = energia.u8.hhhh8;
+        	tx_buf[16] = energia.u8.hhh8;
+        	err = esp_mesh_send(NULL,&data_tx, MESH_DATA_P2P, NULL, 0);
+        	if(err == ESP_OK){
+				printf("Mandado\r\n");
+			}
         }
     }
     vTaskDelete(NULL);
@@ -518,24 +527,25 @@ void modbus_tcpip_pulsos(void *arg)
 
 void nvs_pulsos(void *arg){
 
-		//Variables para conteo de reinicios
-		nvs_handle_t ctrl_pulsos;
-		uint64_t pulsos;
-		// NVS open
-		esp_err_t err = nvs_open("storage", NVS_READWRITE, &ctrl_pulsos);
-	while(1){
+	//Variables para conteo de reinicios
+	nvs_handle_t ctrl_pulsos;
+	uint64_t pulsos;
+	// NVS open
+	esp_err_t err;
+	float muestra_energy;
+	while(!esp_mesh_is_root()){
 			err = nvs_open("storage", NVS_READWRITE, &ctrl_pulsos);
 			if (err != ESP_OK) {
 				printf("Error (%s) abriendo el NVS!\n", esp_err_to_name(err));
 			}else{
-			xSemaphoreTake(smfNVS,portMAX_DELAY);
-			xQueuePeek(Cuenta_de_pulsos,&pulsos,portMAX_DELAY);
-			energy_ini = round(pulsos/fconv);
-			err = nvs_set_u64(ctrl_pulsos, "energy", energy_ini);
-			printf((err != ESP_OK) ? "Error pulse counter set!\n" : "Done\n");
-			err = nvs_commit(ctrl_pulsos);
-			printf((err != ESP_OK) ? "Error in pulse counter commit!\n" : "Done\n");
-			close(ctrl_pulsos);
+				xSemaphoreTake(smfNVS,portMAX_DELAY);
+				xQueuePeek(Cuenta_de_pulsos,&pulsos,portMAX_DELAY);
+				muestra_energy = (float)pulsos/(float)fconv;
+				err = nvs_set_u64(ctrl_pulsos, "energy", pulsos);
+				printf((err != ESP_OK) ? "Error pulse counter set!\n" : "Set Done energy %.6f kWh\n Pulsos: %llu\n",muestra_energy,pulsos);
+				err = nvs_commit(ctrl_pulsos);
+				printf((err != ESP_OK) ? "Error in pulse counter commit!\n" : "Commit Done\n");
+				close(ctrl_pulsos);
 			}
 			}
 			ESP_LOGE(MESH_TAG,"La tarea de guardado en flash de pulsos fue eliminada");
@@ -548,12 +558,17 @@ void nvs_pulsos(void *arg){
 void conteo_pulsos (void *arg){
 
 	uint64_t contador;
-	contador = round(energy_ini/fconv);
+	contador = energy_ini;
+	double muestra_energia;
+	muestra_energia = (float)energy_ini/(float)fconv;
+	printf("Energia: %.6lf\r\n",muestra_energia);
 
-	while(1){
+	while(!esp_mesh_is_root()){
 		xSemaphoreTake(smfPulso,portMAX_DELAY);
 		contador++;
+		muestra_energia = (float)contador/(float)fconv;
 		printf("Contador: %llu\r\n",contador);
+		printf("Energia: %.6lf kWh\r\n",muestra_energia);
 		xQueueOverwrite(Cuenta_de_pulsos,&contador);
 	}
 	ESP_LOGE(MESH_TAG,"La tarea de conteo de pulsos fue eliminada");
@@ -646,35 +661,35 @@ void mesh_event_handler(void *arg, esp_event_base_t event_base,
         		case(rs485):
         			creador = vTaskB(rx_child);
         			if(creador){
-        				xTaskCreatePinnedToCore(esp_mesh_p2p_rx_main, "Rx_child", 3072*2, NULL, 5, NULL,0);
+        				xTaskCreatePinnedToCore(esp_mesh_p2p_rx_main, rx_child, 3072*2, NULL, 5, NULL,0);
         			}
         			creador = vTaskB(rx_rs485);
         			if(creador){
-        				xTaskCreatePinnedToCore(bus_rs485, "Rx_RS485", 3072*3, NULL, 5, NULL, 1);
+        				xTaskCreatePinnedToCore(bus_rs485, rx_rs485, 3072*3, NULL, 5, NULL, 1);
         			}
         		break;
         		case(pulsos):
         			creador = vTaskB(modbus_pulse);
         			if(creador){
-        				xTaskCreatePinnedToCore(modbus_tcpip_pulsos,"Commun P2P",3072*2,NULL,5,NULL,0);
+        				xTaskCreatePinnedToCore(modbus_tcpip_pulsos,modbus_pulse,3072*2,NULL,5,NULL,0);
         			}
         			creador = vTaskB(nvs_pulse);
         			if(creador){
-        				xTaskCreatePinnedToCore(nvs_pulsos,"Guardar P",3072*2,NULL,5,NULL,1);
+        				xTaskCreatePinnedToCore(nvs_pulsos,nvs_pulse,3072*2,NULL,5,NULL,1);
         			}
         			creador = vTaskB(count_pulse);
         			if(creador){
-        				xTaskCreatePinnedToCore(conteo_pulsos,"Count P",3072*2,NULL,5,NULL,1);
+        				xTaskCreatePinnedToCore(conteo_pulsos,count_pulse,3072*2,NULL,5,NULL,1);
         			}
         		break;
         		case(chino):
         			creador = vTaskB(rx_child);
         			if(creador){
-        				xTaskCreatePinnedToCore(esp_mesh_p2p_rx_main, "Rx_child", 3072*2, NULL, 5, NULL,0);
+        				xTaskCreatePinnedToCore(esp_mesh_p2p_rx_main, rx_child, 3072*2, NULL, 5, NULL,0);
         			}
         			creador = vTaskB(rx_rs485);
         			if(creador){
-        				xTaskCreatePinnedToCore(bus_rs485, "Rx_RS485", 3072*3, NULL, 5, NULL, 1);
+        				xTaskCreatePinnedToCore(bus_rs485, rx_rs485, 3072*3, NULL, 5, NULL, 1);
         			}
         		break;
         		case(enlace):
@@ -825,7 +840,7 @@ void ip_event_handler(void *arg, esp_event_base_t event_base,
 /*Inicio Mesh*/
 
 void mesh_init(struct form_home form){
-
+	fconv = form.conversion;
 	port = form.port;
 	tipo = str2enum(form.tipo);
 	SLAVE_ID = form.slaveid;
