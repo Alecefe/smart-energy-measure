@@ -3,6 +3,20 @@
 #include "math.h"
 const char *nvs_tag = "NVS";
 const char *http_server = "HTTP SERVER";
+bool ahora = true;
+
+conversion_t conversion[4] = {{rs485,"rs485"},{pulsos,"pulsos"},{chino,"chino"},{enlace,"enlace"}};
+uint8_t hola_mundo;
+
+tipo_de_medidor str2enum (const char *str)
+{    int j;
+     for (j = 0;  j < sizeof (conversion) / sizeof (conversion[0]);  ++j)
+         if (!strcmp (str, conversion[j].str))
+             return conversion[j].val;
+     ESP_LOGI(http_server,"Tipo no valido");
+     return enlace;
+}
+
 
 // Variables constantes que definen la pagina web -------------------------------//
 const static char respuestaHTTP[] = "HTTP/1.1 200 OK\r\nContent-type:"
@@ -13,7 +27,24 @@ const static char abreHTML[] = "<!DOCTYPE html><html lang=\"es\">";
 const static char cabeceraHTML[] = "<head>"
         "<title>Control</title>"
 		"<meta charset=\"UTF-8\">"
+		"<script>"
+            "function pulsos(){"
+             "if(document.getElementById(\"tipo_med\").value==\"pulsos\"){"
+              "document.getElementById(\"med_pulse\").style.display = \"block\";"
+               "document.getElementById(\"med_rs485\").style.display = \"none\";"
+                "}"
+                "if(document.getElementById(\"tipo_med\").value==\"rs485\"||document.getElementById(\"tipo_med\").value==\"chino\"){"
+                 "document.getElementById(\"med_rs485\").style.display = \"block\";"
+                  "document.getElementById(\"med_pulse\").style.display = \"none\";"
+                "}"
+                "if(document.getElementById(\"tipo_med\").value==\"enlace\"){"
+                  "document.getElementById(\"med_rs485\").style.display = \"none\";"
+                  "document.getElementById(\"med_pulse\").style.display = \"none\";"
+                "}"
+            "}"
+            "</script>"
         "<style>"
+			"body:{margin: 0;}"
             ".vertical-menu a {"
             "background-color: #eee;" /* Grey background color */
             "color: black;" /* Black text color */
@@ -50,7 +81,7 @@ const static char cuerpoALERTAnok[] ="<script>"
 				"</script>";
 
 const static char cuerpoALERTAintro[] ="<script>"
-				"alert('User or Password Incorrect)"
+				"alert('User or Password Incorrect')"
 				"</script>";
 const static char cuerpoReinicio[] ="<script>"
 				"alert('ESP32 Mesh Start')"
@@ -76,10 +107,11 @@ const static char cuerpoHTML_INI[] =
                             "<a href=\"mesh\" class=\"active\">Mesh Configuration</a>"
                             "<a href=\"modbus\">MODBUS Parameters</a>"
                             "<a href=\"mqtt\">MQTT Parameters</a>"
+							"<a href=\"nodomaster\">MODBUS Master Node</a>"
                             "<a href=\"about\">About us</a>"
                         "</div>"
             "</aside>"
-            "<div id=\"FormHome\" style=\"padding=10%;position:relative;left: 10%;top: 5%;margin: 0 auto;display:inline-block;text-align: center;display: block;padding: 2%;width: 25%;border-radius: 2% 2% 2% 2%; border: 5px ridge #000000; background-color: white;\">"
+            "<div id=\"FormHome\" style=\"padding=20%%;position:relative;left: 10%;top: 5%;margin: 0 auto;display:inline-block;text-align: center;display: block;padding: 2%;width: 25%;border-radius: 2% 2% 2% 2%; border: 5px ridge #000000; background-color: white;\">"
                     "<label style=\"font-weight: bold;\">ESP32 Node Configuration</label>"
                     "<form name=\"FormConfig\" style=\"margin: 10%;id=\"init\"\">"
                         "<label id=\"SSID\" >SSID:</label><br>"
@@ -108,44 +140,53 @@ const static char cuerpoHTML_INI[] =
         "</div>"
     "</body>";
 
-const static char cuerpoHTML_MODBUS[] =
-		"<body id=\"todo\">"
-        "<div id=\"pagina\" style=\" display: block;height:100vh;padding=1%;background-color:blue; background-image: linear-gradient(to bottom right, white,blue,white);width: 100%;\">"
-            "<aside id=\"menu\" style=\"width:20%;float:left; background-color: #eee;\">"
-                    "<div class=\"vertical-menu\" style=\"height: 100vh;\">"
-                            "<a href=\"mesh\" >Mesh Configuration</a>"
-                            "<a href=\"modbus\" class=\"active\">MODBUS Parameters</a>"
-                            "<a href=\"mqtt\">MQTT Parameters</a>"
-                            "<a href=\"about\">About us</a>"
-                        "</div>"
+const static char cuerpoHTML_MODBUS[] ="<body id=\"todo\">"
+        "<div id=\"pagina\" style=\" display: block;height:100vh;background-color:blue; background-image: linear-gradient(to bottom right, white,blue,white);width: 100%;\">"
+         "<aside id=\"menu\" style=\"width:20%;float:left; background-color: #eee; \">"
+          "<div class=\"vertical-menu\" style=\"height: 100vh;\">"
+           "<a href=\"mesh\" >Mesh Configuration</a>"
+            "<a href=\"modbus\"class=\"active\">MODBUS</a>"
+             "<a href=\"mqtt\">MQTT</a>"
+              "<a href=\"nodomaster\">MODBUS Master</a>"
+               "<a href=\"about\">About Us</a>"
+                "</div>"
             "</aside>"
-            "<div id=\"FormHome\" style=\"padding=10%;position:relative;left: 10%;top: 5%;margin: 0 auto;display:inline-block;text-align: center;display: block;padding: 2%;width: 25%;border-radius: 2% 2% 2% 2%; border: 5px ridge #000000; background-color: white;\">"
-                    "<label style=\"font-weight: bold;\">MODBUS Configuration</label>"
-                    "<form name=\"FormMODBUS\" style=\"margin: 10%;id=\"init\"\">"
-						"<label >Conversion factor[imp/kWh]:</label><br>"
+            "<div id=\"formModbus\" style=\"padding=10%;position:relative;left: 10%;top: 5%;margin: 0 auto;display:inline-block;text-align: center;display: block;padding: 2%;width: 25%;border-radius: 2% 2% 2% 2%; border: 5px ridge #000000; background-color: white;\">"
+             "<label style=\"font-weight: bold;\">MODBUS Configuration</label>"
+              "<form name=\"FormModbus\" style=\"margin: 10%;\">"
+               "<select id=\"tipo_med\"name = \"modoOutput\" onchange=\"pulsos()\">"
+                "<option value = \"rs485\">Standard RS485 Output</option>"
+                 "<option value = \"pulsos\">Pulse Output</option>"
+                  "<option value = \"chino\">LogoMeter RS485 Output</option>"
+                   "<option value = \"enlace\">Link node</option>"
+                    "</select>"
+                     "<div style=\"display: none;\"id=\"med_pulse\">"
+                      "<br>"
+                       "<br>"
+                        "<label>Conversion factor[imp/kWh]:</label><br>"
 						"<input class=\"opcion\"type=\"number\" name=\"conversion\" placeholder=\"imp/kWh\"><br>"
-						"<label >Initial Energy [kWh]:</label><br>"
-						"<input class=\"opcion\"type=\"number\" name=\"energia\" placeholder=\"Initial kWh\"><br>"
-						"<select name = \"modoOutput\">"
-						"<option value = \"rs485\">Standard RS485 Output</option>"
-						"<option value = \"pulsos\">Pulse Output</option>"
-						"<option value = \"chino\">LogoMeter RS485 Output</option>"
-						"<option value = \"enlace\">Link node</option>"
-						"</select><br>"
-						"<label >Slave ID:</label><br>"
+						"<label>Initial Energy [kWh]:</label><br>"
+						"<input class=\"opcion\"type=\"text\" name=\"energia\" pattern=\"[0-9]+(\\.[0-9]{1,2})%?\" placeholder=\"Initial kWh\"><br>"
+                        "<label >Slave ID:</label><br>"
 						"<input class=\"opcion\"type=\"number\" name=\"slaveid\" placeholder=\"Id for pulse meter\"><br>"
+                    "</div>"
+                    "<div style=\"display: none;\"id=\"med_rs485\">"
+                     "<br>"
+                      "<br>"
+                       " <label >Baud Rate:</label><br>"
+                       " <input class=\"opcion\"type=\"number\" name=\"baud_rate\" placeholder=\"Baudios\"><br>"
+                    "</div>"
+                        "<br><br><br>"
 						"<input class=\"opcion\"type=\"submit\" name=\"submit\" value=\"Submit\"style=\"margin:10px;\">"
                         "<input class=\"opcion\"type=\"button\" name=\"enter\" value=\"Cancel\"style=\"margin:10px;\">"
-
-                    	"</form>"
-					"<form name=\"Reset ESP\">"
-						"<input type=\"submit\" id=\"restart\" style=\"padding: 10%;\" name=\"reinicio\" value=\"Start Mesh\"runat=\"server\"formmethod=\"post\">"
-					"</form>"
-            "</div>"
-        "</div>"
+                    "</form>"
+                    "<input type=\"button\" id=\"restart\" style=\"padding: 10%;\" name=\"reinicio\" value=\"Start Mesh\">"
+           " </div>"
+       " </div> "
     "</body>";
 
 const static char cierraHTML[] = "</html>";
+
 
 void set_form_flash_init(struct form_home form){
 	esp_err_t err;
@@ -170,24 +211,39 @@ void set_form_flash_init(struct form_home form){
 
 		err = nvs_commit(ctrl_flash);
 	}
-
 	nvs_close(ctrl_flash);
 }
 
 void set_form_flash_modbus(struct form_home form){
 	esp_err_t err;
 	nvs_handle_t ctrl_flash;
+	tipo_de_medidor tipo;
 	err = nvs_open("storage",NVS_READWRITE,&ctrl_flash);
 	if (err != ESP_OK) {
 		printf("Error (%s) opening NVS handle!\n", esp_err_to_name(err));
 	}else{
-		nvs_set_u64(ctrl_flash,"energy",form.energia);
-
 		nvs_set_str(ctrl_flash,"tipo",form.tipo);
 
-		nvs_set_u8(ctrl_flash,"slaveid",form.slaveid);
+		tipo = str2enum(form.tipo);
+		switch(tipo){
 
-		nvs_set_u16(ctrl_flash,"conver",form.conversion);
+			case(rs485):
+					nvs_set_u32(ctrl_flash,"baud",form.baud_rate);
+			break;
+			case(pulsos):
+					nvs_set_u64(ctrl_flash,"energy",form.energia);
+
+					nvs_set_u8(ctrl_flash,"slaveid",form.slaveid);
+
+					nvs_set_u16(ctrl_flash,"conver",form.conversion);
+			break;
+			case(chino):
+					nvs_set_u32(ctrl_flash,"baud",form.baud_rate);
+			break;
+			case(enlace):
+			break;
+
+			}
 		err = nvs_commit(ctrl_flash);
 	}
 	nvs_close(ctrl_flash);
@@ -307,30 +363,6 @@ void get_form_flash(struct form_home *form){
 					printf("Error (%s) opening NVS handle!\n", esp_err_to_name(err));
 				break;
 			}
-			nvs_get_u64(ctrl_prueba,"energy",&(form->energia));
-			switch(err){
-				case ESP_OK:
-					ESP_LOGI(nvs_tag,"Medicion de energia en flash: %"PRIu64,form->energia);
-				break;
-				case ESP_ERR_NVS_NOT_FOUND:
-					ESP_LOGI(nvs_tag,"Medicion de energia en flash: none");
-				break;
-				default:
-					printf("Error (%s) opening NVS handle!\n", esp_err_to_name(err));
-				break;
-			}
-			nvs_get_u8(ctrl_prueba,"slaveid",&(form->slaveid));
-			switch(err){
-				case ESP_OK:
-					ESP_LOGI(nvs_tag,"Slave ID en medidor a pulsos en flash: %d",form->slaveid);
-				break;
-				case ESP_ERR_NVS_NOT_FOUND:
-					ESP_LOGI(nvs_tag,"Slave ID en flash: none");
-				break;
-				default:
-					printf("Error (%s) opening NVS handle!\n", esp_err_to_name(err));
-				break;
-			}
 			err = nvs_get_str(ctrl_prueba,"tipo",NULL,&len);
 			if(err==ESP_OK){
 				err= nvs_get_str(ctrl_prueba,"tipo",form->tipo,&len);
@@ -346,17 +378,79 @@ void get_form_flash(struct form_home *form){
 				break;
 			}
 			}
-			nvs_get_u16(ctrl_prueba,"conver",&(form->conversion));
-			switch(err){
-				case ESP_OK:
-					ESP_LOGI(nvs_tag,"Factor de conversion en flash: %d",form->conversion);
-				break;
-				case ESP_ERR_NVS_NOT_FOUND:
-					ESP_LOGI(nvs_tag,"Factor de conversion en flash: none");
-				break;
-				default:
-					printf("Error (%s) opening NVS handle!\n", esp_err_to_name(err));
-				break;
+			switch(str2enum(form->tipo)){
+
+			case(rs485):
+					err = nvs_get_u32(ctrl_prueba,"baud",&(form->baud_rate));
+					switch(err){
+						case ESP_OK:
+							ESP_LOGI(nvs_tag,"Baud Rate en flash: %"PRIu32,form->baud_rate);
+						break;
+						case ESP_ERR_NVS_NOT_FOUND:
+							ESP_LOGI(nvs_tag,"Baud Rate en flash: none");
+						break;
+						default:
+							printf("Error (%s) opening NVS handle!\n", esp_err_to_name(err));
+						break;
+					}
+					break;
+			case(pulsos):
+					err = nvs_get_u64(ctrl_prueba,"energy",&(form->energia));
+					switch(err){
+						case ESP_OK:
+							ESP_LOGI(nvs_tag,"Pulsos en flash: %"PRIu64,form->energia);
+						break;
+						case ESP_ERR_NVS_NOT_FOUND:
+							ESP_LOGI(nvs_tag,"Pulsos en flash: none");
+						break;
+						default:
+							printf("Error (%s) opening NVS handle!\n", esp_err_to_name(err));
+						break;
+					}
+					err = nvs_get_u8(ctrl_prueba,"slaveid",&(form->slaveid));
+					switch(err){
+						case ESP_OK:
+							ESP_LOGI(nvs_tag,"Slave ID en medidor a pulsos en flash: %d",form->slaveid);
+						break;
+						case ESP_ERR_NVS_NOT_FOUND:
+							ESP_LOGI(nvs_tag,"Slave ID en flash: none");
+						break;
+						default:
+							printf("Error (%s) opening NVS handle!\n", esp_err_to_name(err));
+						break;
+					}
+
+					err = nvs_get_u16(ctrl_prueba,"conver",&(form->conversion));
+					switch(err){
+						case ESP_OK:
+							ESP_LOGI(nvs_tag,"Factor de conversion en flash: %d",form->conversion);
+						break;
+						case ESP_ERR_NVS_NOT_FOUND:
+							ESP_LOGI(nvs_tag,"Factor de conversion en flash: none");
+						break;
+						default:
+							printf("Error (%s) opening NVS handle!\n", esp_err_to_name(err));
+						break;
+					}
+					break;
+				case(chino):
+					err = nvs_get_u32(ctrl_prueba,"",&(form->baud_rate));
+					switch(err){
+						case ESP_OK:
+							ESP_LOGI(nvs_tag,"Baud Rate en flash: %"PRIu32,form->baud_rate);
+						break;
+						case ESP_ERR_NVS_NOT_FOUND:
+							ESP_LOGI(nvs_tag,"Baud Rate en flash: none");
+						break;
+						default:
+							printf("Error (%s) opening NVS handle!\n", esp_err_to_name(err));
+						break;
+					}
+					break;
+					case(enlace):
+							break;
+					default:
+						break;
 			}
 	}
 	nvs_close(ctrl_prueba);
@@ -370,22 +464,25 @@ bool Llenar_intro(char *p){
 	ini = strstr(p,"usuario=");
 	if(ini!=NULL){
 	ini+=sizeof("usuario=")-1;
-		for(int i = 0;i<9;i++){
+		for(int i = 0;ini[i]!='&';i++){
+
 			if(ini[i]!=usuario[i]){
 				return false;
 			}
 		}
-	}
+	}else{printf("nada\r\n");}
 
 	ini = strstr(p,"contrasena=");
 	if(ini!=NULL){
 	ini+=sizeof("contrasena=")-1;
-		for(int i = 0;i<9;i++){
+		for(int i = 0;ini[i]!='&';i++){
+
 				if(ini[i]!=password[i]){
+
 					return false;
 				}
 			}
-	}
+	}else{printf("nada\r\n");}
 	return true;
 	}
 
@@ -549,44 +646,8 @@ bool Llenar_form_home(char * p, struct form_home form1){
 bool Llenar_form_modbus(char *p,struct form_home form){
 	char *ini;
 	int count;
-	/*Extrayendo Factor de Conversion*/
-	ini=strstr(p,"conversion=");
-	if(ini!=NULL){
-		ini+=sizeof("conversion=")-1;
-		char conversion[5];
-		count = 0;
-		int cont;
-		for(int i = 0; ini[i]!='&';i++){
-			conversion[i]=ini[i];
-			count++;
-		}
-		conversion[count]=0;
-		cont = atoi(conversion);
-		if(cont>=0){
-			form.conversion =(uint16_t)cont;
-			printf("Factor de conversion: %d imp/kWh\r\n",form.conversion);
-		}else{
-			return false;
-		}
-	}
-	/*Extrayendo Medida Inicial*/
-	ini=strstr(p,"energia=");
-	if(ini!=NULL){
-		ini+=sizeof("energia=")-1;
-		char energy[]="";
-		float backup_f;
-		uint64_t backup=0;
-		for(int i = 0; ini[i]!='&';i++){
-			energy[i]=ini[i];
-		}
-		backup_f = atof(energy);
-		printf("Medicion Energia:%.4fkWh\r\n",backup_f);
-		backup = round(backup_f*form.conversion);
-		if(backup>=0){
-			form.energia = backup;
-			printf("Medicion Pulsos:%"PRIu64"\r\n",form.energia);
-		}
-	}
+	tipo_de_medidor tipo;
+
 	/*Extrayendo Modo Output*/
 	ini = strstr(p,"modoOutput=");
 	if(ini!=NULL){
@@ -596,26 +657,121 @@ bool Llenar_form_modbus(char *p,struct form_home form){
 		}
 		printf("Modo de Nodo: %s\r\n",form.tipo);
 	}
-	else{return false;}
-	/*Extrayendo Slave IDl*/
-	ini=strstr(p,"slaveid=");
-	if(ini!=NULL){
-		ini+=sizeof("slaveid=")-1;
-		char slaveid[3];
-		count = 0;
-		int auxSlave;
-		for(int i = 0; ini[i]!='&';i++){
-			slaveid[i]=ini[i];
-			count++;
+	else{
+		return false;
+	}
+
+	tipo = str2enum(form.tipo);
+
+	switch(tipo){
+		case(rs485):
+		ini=strstr(p,"baud_rate=");
+		if(ini!=NULL){
+			ini+=sizeof("baud_rate=")-1;
+			char baud[10];
+			count = 0;
+			int auxRate;
+			for(int i = 0; ini[i]!='&';i++){
+				baud[i]=ini[i];
+				count++;
+			}
+			baud[count]=0;
+			auxRate = atoi(baud);
+			if(auxRate>=0){
+				form.baud_rate =(uint32_t)auxRate;
+				printf("Baud Rate:%d\r\n",form.baud_rate);
+			}else{
+				return false;
+			}
 		}
-		slaveid[count]=0;
-		auxSlave = atoi(slaveid);
-		if(auxSlave>=0){
-			form.slaveid =(uint8_t)auxSlave;
-			printf("Slave ID:%d\r\n",form.slaveid);
-		}else{
-			return false;
-		}
+
+		break;
+
+		case(pulsos):
+			/*Extrayendo Factor de Conversion*/
+				ini=strstr(p,"conversion=");
+				if(ini!=NULL){
+					ini+=sizeof("conversion=")-1;
+					char conversion[5];
+					count = 0;
+					int cont;
+					for(int i = 0; ini[i]!='&';i++){
+						conversion[i]=ini[i];
+						count++;
+					}
+					conversion[count]=0;
+					cont = atoi(conversion);
+					if(cont>=0){
+						form.conversion =(uint16_t)cont;
+						printf("Factor de conversion: %d imp/kWh\r\n",form.conversion);
+					}else{
+						return false;
+					}
+				}
+				/*Extrayendo Medida Inicial*/
+				ini=strstr(p,"energia=");
+				if(ini!=NULL){
+					ini+=sizeof("energia=")-1;
+					char energy[]="";
+					float backup_f;
+					uint64_t backup=0;
+					for(int i = 0; ini[i]!='&';i++){
+						energy[i]=ini[i];
+					}
+					backup_f = atof(energy);
+					printf("Medicion Energia:%.4fkWh\r\n",backup_f);
+					backup = round(backup_f*form.conversion);
+					if(backup>=0){
+						form.energia = backup;
+						printf("Medicion Pulsos:%"PRIu64"\r\n",form.energia);
+					}
+				}
+				/*Extrayendo Slave IDl*/
+				ini=strstr(p,"slaveid=");
+				if(ini!=NULL){
+					ini+=sizeof("slaveid=")-1;
+					char slaveid[3];
+					count = 0;
+					int auxSlave;
+					for(int i = 0; ini[i]!='&';i++){
+						slaveid[i]=ini[i];
+						count++;
+					}
+					slaveid[count]=0;
+					auxSlave = atoi(slaveid);
+					if(auxSlave>=0){
+						form.slaveid =(uint8_t)auxSlave;
+						printf("Slave ID:%d\r\n",form.slaveid);
+					}else{
+						return false;
+					}
+				}
+				break;
+
+		case(chino):
+		ini=strstr(p,"baud_rate=");
+				if(ini!=NULL){
+					ini+=sizeof("baud_rate=")-1;
+					char baud[10];
+					count = 0;
+					int auxRate;
+					for(int i = 0; ini[i]!='&';i++){
+						baud[i]=ini[i];
+						count++;
+					}
+					baud[count]=0;
+					auxRate = atoi(baud);
+					if(auxRate>=0){
+						form.baud_rate =(uint32_t)auxRate;
+						printf("Baud Rate:%d\r\n",form.baud_rate);
+					}else{
+						return false;
+					}
+				}
+				break;
+
+		case(enlace):
+		break;
 	}
 	set_form_flash_modbus(form);
 	return true;
@@ -651,6 +807,15 @@ static void WEBlocal(struct netconn *conexion,struct netconn *close){
 			netconn_write(conexion, cierraHTML, sizeof(cierraHTML)-1, NETCONN_NOCOPY);
 	    }
 
+	    if (strncmp(buffer,"GET /?ssid=",sizeof("GET /?ssid=")-1)==0){
+			netconn_write(conexion, respuestaHTTP, sizeof(respuestaHTTP)-1,NETCONN_NOCOPY);
+			netconn_write(conexion, abreHTML, sizeof(abreHTML)-1, NETCONN_NOCOPY);
+			netconn_write(conexion, cabeceraHTML, sizeof(cabeceraHTML)-1, NETCONN_NOCOPY);
+			netconn_write(conexion, cuerpoHTML_INI, sizeof(cuerpoHTML_INI)-1, NETCONN_NOCOPY);
+			netconn_write(conexion, cuerpoALERTAok, sizeof(cuerpoALERTAok)-1, NETCONN_NOCOPY);
+			netconn_write(conexion, cierraHTML, sizeof(cierraHTML)-1, NETCONN_NOCOPY);
+		}
+
 	    if (strncmp(buffer,"GET /mqtt HTTP/1.1",sizeof("GET /mqtt HTTP/1.1")-1)==0){
 			netconn_write(conexion, respuestaHTTP, sizeof(respuestaHTTP)-1,NETCONN_NOCOPY);
 			netconn_write(conexion, abreHTML, sizeof(abreHTML)-1, NETCONN_NOCOPY);
@@ -660,7 +825,7 @@ static void WEBlocal(struct netconn *conexion,struct netconn *close){
 			netconn_write(conexion, cuerpoALERTApaga, sizeof(cuerpoALERTApaga)-1, NETCONN_NOCOPY);
 		}
 
-	    if (strncmp(buffer,"GET /modbus?conversion",sizeof("GET /modbus?conversion")-1)==0){
+	    if (strncmp(buffer,"GET /modbus?",sizeof("GET /modbus?")-1)==0){
 	    	for(int i=0;buffer[i]!=0;i++){
 				if(strncmp(&buffer[i],"%",1)==0){
 
@@ -699,6 +864,7 @@ static void WEBlocal(struct netconn *conexion,struct netconn *close){
 	  	    }
 
 	    if (strncmp(buffer,"GET /?usuario",13)==0){
+
 	    	if(Llenar_intro(buffer)){
 	    		netconn_write(conexion, respuestaHTTP, sizeof(respuestaHTTP)-1,NETCONN_NOCOPY);
 				netconn_write(conexion, abreHTML, sizeof(abreHTML)-1, NETCONN_NOCOPY);
@@ -708,9 +874,9 @@ static void WEBlocal(struct netconn *conexion,struct netconn *close){
 	    	}else{
 	    		netconn_write(conexion, respuestaHTTP, sizeof(respuestaHTTP)-1,NETCONN_NOCOPY);
 				netconn_write(conexion, abreHTML, sizeof(abreHTML)-1, NETCONN_NOCOPY);
+				netconn_write(conexion, cuerpoALERTAintro, sizeof(cuerpoALERTAintro)-1, NETCONN_NOCOPY);
 				netconn_write(conexion, cabeceraHTML, sizeof(cabeceraHTML)-1, NETCONN_NOCOPY);
 				netconn_write(conexion, cuerpoHTML, sizeof(cuerpoHTML)-1, NETCONN_NOCOPY);
-				netconn_write(conexion, cuerpoALERTAintro, sizeof(cuerpoALERTAintro)-1, NETCONN_NOCOPY);
 				netconn_write(conexion, cierraHTML, sizeof(cierraHTML)-1, NETCONN_NOCOPY);
 	    	}
 	    }
@@ -785,7 +951,7 @@ static void WEBlocal(struct netconn *conexion,struct netconn *close){
 				netconn_write(conexion, abreHTML, sizeof(abreHTML)-1, NETCONN_NOCOPY);
 				netconn_write(conexion, cabeceraHTML, sizeof(cabeceraHTML)-1, NETCONN_NOCOPY);
 				netconn_write(conexion, cuerpoReinicio, sizeof(cuerpoReinicio)-1, NETCONN_NOCOPY);
-				netconn_write(conexion, cierraHTML, sizeof(cierraHTML)-1, NETCONN_NOCOPY);
+				vTaskDelay(pdMS_TO_TICKS(10));
 	    		netconn_close(conexion);
 	    		netbuf_delete(bufferEntrada);
 	    		netconn_delete(conexion);

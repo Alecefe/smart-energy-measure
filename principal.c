@@ -9,7 +9,8 @@ void app_main(){
 	nvs_flash_init();
 	struct form_home form;
 	get_form_flash(&form);
-
+	tipo_de_medidor tipo;
+	tipo = str2enum(form.tipo);
 	if(gpio_get_level(PIN_CONFIG_1)==0){
 		xTaskCreatePinnedToCore(&tareaSOCKET,"SOCKET_HTTP",Pila*3,NULL,3,&http_socket,1);
 	}else{
@@ -20,10 +21,29 @@ void app_main(){
 		ESP_LOGW(MESH_INIT,"MESH MAX LAYER = %d",form.max_layer);
 		ESP_LOGW(MESH_INIT,"MESH MAX STA = %d",form.max_sta);
 		ESP_LOGW(MESH_INIT,"MESH PORT = %d",form.port);
-		ESP_LOGW(MESH_INIT,"MESH METER INITIAL ENERGY = %"PRIu64"pulsos",form.energia);
-		ESP_LOGW(MESH_INIT,"MESH SLAVE ID = %d",form.slaveid);
 		ESP_LOGW(MESH_INIT,"Type of Meter: %s",form.tipo);
-		ESP_LOGW(MESH_INIT,"Conversion Factor: %d imp/kWh",form.conversion);
+		switch(tipo){
+
+		case(rs485):
+				ESP_LOGW(MESH_INIT,"MESH METER BAUD RATE = %"PRIu32,form.baud_rate);
+		break;
+
+		case(pulsos):
+			ESP_LOGW(MESH_INIT,"MESH METER INITIAL ENERGY = %"PRIu64"pulsos",form.energia);
+			ESP_LOGW(MESH_INIT,"MESH SLAVE ID = %d",form.slaveid);
+			ESP_LOGW(MESH_INIT,"Conversion Factor: %d imp/kWh",form.conversion);
+		break;
+
+		case(chino):
+			ESP_LOGW(MESH_INIT,"MESH METER BAUD RATE = %"PRIu32,form.baud_rate);
+		break;
+
+		case(enlace):
+		break;
+
+		default:
+		break;
+		}
 		mesh_init(form);
 	}
 }

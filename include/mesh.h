@@ -31,7 +31,6 @@
  *                Variable Definitions
  *******************************************************/
 
-
 QueueHandle_t RxSocket;
 QueueHandle_t TxRS485;
 
@@ -55,15 +54,18 @@ mesh_addr_t root_address;
 int men;
 
 
+
 void IRAM_ATTR interrupcion_pulsos (void* arg);
 
 void IRAM_ATTR guadado_en_flash(void* arg);
 
+bool vTaskB( char *nombre_tarea );
 
 /*Root*/
 void esp_mesh_tx_to_ext(void *arg);
 
 void esp_mesh_p2p_tx_main(void *Pa);
+
 
 /*Nodo medidor por RS485*/
 void esp_mesh_p2p_rx_main(void *arg);
@@ -73,6 +75,7 @@ void bus_rs485(void *arg);
 void modbus_tcpip_pulsos(void *arg);
 
 /*Nodo medidor por pulsos*/
+
 void nvs_pulsos(void *arg);
 
 void conteo_pulsos (void *arg);
@@ -86,5 +89,6 @@ void ip_event_handler(void *arg, esp_event_base_t event_base,
 
 /*Inicializacion*/
 void mesh_init(struct form_home form);
+
 #endif
 

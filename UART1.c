@@ -123,7 +123,8 @@ void iniciarUART()
 	// Se coloca el modo rs485                                                           //
 	ESP_ERROR_CHECK(uart_set_mode(uart1, UART_MODE_RS485_HALF_DUPLEX));
 	RxRS485 = xQueueCreate(5,128);
-  	// xTaskCreate(uart_event_task, "uart_event_task", 2048, NULL, 5, NULL);
+
+  	xTaskCreate(uart_event_task, "uart_event_task", 2048, NULL, 5, NULL);
 	xTaskCreate(uart_chino, "UART CHINO", 2048, NULL, 5, NULL);
 
 	}

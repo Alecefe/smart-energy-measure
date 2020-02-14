@@ -18,55 +18,21 @@ SemaphoreHandle_t smfPulso = NULL;
 SemaphoreHandle_t smfNVS = NULL;
 bool creador = true;
 
-typedef enum{
-	rs485 = 0,
-	pulsos,
-	chino,
-	enlace
-} tipo_de_medidor;
-
-struct {
-	tipo_de_medidor val;
-	const char* str;
-} conversion[] = {{rs485,"rs485"},{pulsos,"pulsos"},{chino,"chino"},{enlace,"enlace"},};
-
-typedef union{
-	uint64_t tot;
-	struct{
-		uint32_t l32;
-		uint32_t h32;
-	}u32;
-	struct{
-		uint16_t ll16;
-		uint16_t l16;
-		uint16_t h16;
-		uint16_t hh16;
-	}u16;
-	struct{
-		uint8_t llll8;
-		uint8_t lll8;
-		uint8_t ll8;
-		uint8_t l8;
-		uint8_t h8;
-		uint8_t hh8;
-		uint8_t hhh8;
-		uint8_t hhhh8;
-	}u8;
-}energytype_t;
-
-
 tipo_de_medidor tipo;
+
 /************************************/
 /**** Medidor de salida a pulsos ****/
 /************************************/
 
 /*Interrupcion de entrada de pulso*/
+
 void IRAM_ATTR interrupcion_pulsos (void* arg)
 {
 	xSemaphoreGiveFromISR(smfPulso,NULL);
 }
 
 /*Interrupcion asociada al guardado en flash*/
+
 void IRAM_ATTR guadado_en_flash(void* arg)
 {
 	xSemaphoreGiveFromISR(smfNVS,NULL);
@@ -108,16 +74,6 @@ bool vTaskB( char *nombre_tarea )
    ESP_LOGW(MESH_TAG,"Creando Tarea: %s",(char *)nombre_tarea);
    return true;
 }
-
-tipo_de_medidor str2enum (const char *str)
-{    int j;
-     for (j = 0;  j < sizeof (conversion) / sizeof (conversion[0]);  ++j)
-         if (!strcmp (str, conversion[j].str))
-             return conversion[j].val;
-     ESP_LOGI(MESH_TAG,"Tipo no valido");
-     return enlace;
-}
-
 
 void config_gpio_pulsos(tipo_de_medidor tipo){
 
@@ -343,7 +299,6 @@ void esp_mesh_p2p_tx_main(void *Pa){
     vTaskDelete(NULL);
 }
 
-
 /********* Tareas de un Nodo ************/
 
 /****************************/
@@ -473,6 +428,7 @@ void bus_rs485(void *arg){
 }
 
 /*Tarea de comunicacion P2P con el sistema*/
+
 void modbus_tcpip_pulsos(void *arg)
 {
     esp_err_t err;
