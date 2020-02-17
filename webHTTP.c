@@ -180,10 +180,32 @@ const static char cuerpoHTML_MODBUS[] ="<body id=\"todo\">"
 						"<input class=\"opcion\"type=\"submit\" name=\"submit\" value=\"Submit\"style=\"margin:10px;\">"
                         "<input class=\"opcion\"type=\"button\" name=\"enter\" value=\"Cancel\"style=\"margin:10px;\">"
                     "</form>"
-                    "<input type=\"button\" id=\"restart\" style=\"padding: 10%;\" name=\"reinicio\" value=\"Start Mesh\">"
+					"<form name=\"Reset ESP\">"
+								"<input type=\"submit\" id=\"restart\" style=\"padding: 10%;\" name=\"reinicio\" value=\"Start Mesh\"runat=\"server\"formmethod=\"post\">"
+					"</form>"
            " </div>"
        " </div> "
     "</body>";
+
+const static char cuerpoHTML_SUPER_NODO[] =
+		"<body>"
+		"<form>"
+		"<input type=\"number\" name=\"examplevar\" />"
+		"<table>"
+		  "<tr>"
+		    "<td><input type=\"text\" name=\"color_1[]\" /></td>"
+		    "<td><input type=\"\text\" name=\"color_2[]\" /></td>"
+		 " </tr>"
+		  "<tr>"
+		    "<td><input type=\"text\" name=\"color_1[]\" /></td>"
+		    "<td><input type=\"text\" name=\"color_2[]\" /></td>"
+		  "</tr>"
+		"<table>"
+		"<input type=\"submit\" />"
+		"</form>"
+		    "</body>"
+
+		;
 
 const static char cierraHTML[] = "</html>";
 
@@ -790,6 +812,24 @@ static void WEBlocal(struct netconn *conexion,struct netconn *close){
 	  if (err == ERR_OK) {
 		  printf("----- Paquete Recibido -----\n");
 	    netbuf_data(bufferEntrada, (void**)&buffer, &long_buffer);
+	    for(int i=0;buffer[i]!=0;i++){
+	    			if(strncmp(&buffer[i],"%",1)==0){
+
+	    				ini[0]=buffer[i+1];
+	    				ini[1]=buffer[i+2];
+	    				if(ini[0]>0x40&&ini[0]<0x47){
+	    					ini[0]-= 0x37;
+	    				}
+	    				if(ini[1]>0x40&&ini[1]<0x47){
+	    					ini[1]-=0x37;
+	    				}
+	    				aux = ((0x0f&ini[0])<<4)|(0x0f&ini[1]);
+	    				printf("%c",aux);
+	    				i+=2;
+	    			}else{
+	    				printf("%c",buffer[i]);}
+	    		}
+	    		printf("\n");
 
 	    if (strncmp(buffer,"GET /modbus HTTP/1.1",sizeof("GET /modbus HTTP/1.1")-1)==0){
 	    	netconn_write(conexion, respuestaHTTP, sizeof(respuestaHTTP)-1,NETCONN_NOCOPY);
@@ -977,6 +1017,14 @@ static void WEBlocal(struct netconn *conexion,struct netconn *close){
 				printf("%c",buffer[i]);}
 		}
 		printf("\n");
+
+	    }
+	    if(strncmp(buffer,"GET /nodomaster HTTP/1.1",sizeof("GET /nodomaster HTTP/1.1")-1)==0){
+	    	netconn_write(conexion, respuestaHTTP, sizeof(respuestaHTTP)-1,NETCONN_NOCOPY);
+			netconn_write(conexion, abreHTML, sizeof(abreHTML)-1, NETCONN_NOCOPY);
+			netconn_write(conexion, cabeceraHTML, sizeof(cabeceraHTML)-1, NETCONN_NOCOPY);
+			netconn_write(conexion, cuerpoHTML_SUPER_NODO, sizeof(cuerpoHTML_SUPER_NODO)-1, NETCONN_NOCOPY);
+			netconn_write(conexion, cierraHTML, sizeof(cierraHTML)-1, NETCONN_NOCOPY);
 
 	    }
 	  }

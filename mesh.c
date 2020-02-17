@@ -19,6 +19,7 @@ SemaphoreHandle_t smfNVS = NULL;
 bool creador = true;
 
 tipo_de_medidor tipo;
+uint32_t baud_rate;
 
 /************************************/
 /**** Medidor de salida a pulsos ****/
@@ -36,6 +37,87 @@ void IRAM_ATTR interrupcion_pulsos (void* arg)
 void IRAM_ATTR guadado_en_flash(void* arg)
 {
 	xSemaphoreGiveFromISR(smfNVS,NULL);
+}
+
+void IRAM_ATTR timer_group0_isr(void *para)
+{
+	BaseType_t HigherPriorityTaskWoken =pdFALSE, xResult;
+	//Parametro de entrada el id del timer
+    int timer_idx = (int) para;
+
+    /* Retrieve the interrupt status and the counter value
+       from the timer that reported the interrupt */
+    uint32_t intr_status = TIMERG0.int_st_timers.val;
+    TIMERG0.hw_timer[timer_idx].update = 1;
+    uint64_t timer_counter_value =
+        ((uint64_t) TIMERG0.hw_timer[timer_idx].cnt_high) << 32
+        | TIMERG0.hw_timer[timer_idx].cnt_low;
+
+    //Datos del evento del timer
+    timer_event_t evt;
+    evt.timer_group = 0;
+    evt.timer_idx = timer_idx;
+    evt.timer_counter_value = timer_counter_value;
+
+    /* Clear the interrupt
+       and update the alarm time for the timer with without reload */
+    if ((intr_status & BIT(timer_idx)) && timer_idx == TIMER_0) {
+        evt.type = TEST_WITH_RELOAD;
+        TIMERG0.int_clr_timers.t0 = 1;
+    } else {
+        evt.type = -1; // not supported even type
+    }
+
+    /* After the alarm has been triggered
+      we need enable it again, so it is triggered the next time */
+    TIMERG0.hw_timer[timer_idx].config.alarm_en = TIMER_ALARM_EN;
+    xResult = xEventGroupSetBitsFromISR(prueba,BIT_0,&HigherPriorityTaskWoken);
+
+    if(xResult!=pdFAIL){
+    	portYIELD_FROM_ISR();
+    }
+}
+
+static void tg0_timer_init(int timer_idx,
+    bool auto_reload, double timer_interval_sec)
+{
+    //Configuracion del timer
+    timer_config_t config;
+    config.divider = TIMER_DIVIDER;
+    config.counter_dir = TIMER_COUNT_UP;
+    config.counter_en = TIMER_PAUSE;
+    config.alarm_en = TIMER_ALARM_EN;
+    config.intr_type = TIMER_INTR_LEVEL;
+    config.auto_reload = auto_reload;
+    timer_init(TIMER_GROUP_0, TIMER_0, &config);
+
+    /* Timer's counter will initially start from value below.
+       Also, if auto_reload is set, this value will be automatically reload on alarm */
+    timer_set_counter_value(TIMER_GROUP_0, TIMER_0, (uint64_t)0x00000000ULL);
+
+    /* Configure the alarm value and the interrupt on alarm. */
+    timer_set_alarm_value(TIMER_GROUP_0, TIMER_0, timer_interval_sec * TIMER_SCALE);
+    timer_enable_intr(TIMER_GROUP_0, TIMER_0);
+    timer_isr_register(TIMER_GROUP_0, TIMER_0, timer_group0_isr,
+        (void *) timer_idx, ESP_INTR_FLAG_IRAM, NULL);
+    ESP_LOGI(MESH_TAG,"Habilito interrupcion por timer");
+}
+
+void timer_count(void *arg){
+	bool valor = false;
+	while(1){
+		xSemaphoreTake(smfNVS,portMAX_DELAY);
+		valor = !valor;
+		if(valor){
+			timer_start(TIMER_GROUP_0, TIMER_0);
+			ESP_LOGI(MESH_TAG,"Inicio Timer");
+		}else{
+			timer_pause(TIMER_GROUP_0, TIMER_0);
+			timer_set_counter_value(TIMER_GROUP_0, TIMER_0, (uint64_t)0x00000000ULL);
+			ESP_LOGI(MESH_TAG,"Stop Timer y Reinicio desde su tarea");
+		}
+	}
+	ESP_LOGE(MESH_TAG,"Se elimino la tarea del timer");
 }
 
 /****************************************/
@@ -85,17 +167,18 @@ void config_gpio_pulsos(tipo_de_medidor tipo){
 		gpio_pad_select_gpio(SALVAR);   //configuro el BOTON_SALVAR como un pin GPIO
 		gpio_set_direction(SALVAR, GPIO_MODE_DEF_INPUT);   // seleciono el BOTON_SALVAR como pin de entrada
 		gpio_isr_handler_add(SALVAR, guadado_en_flash, NULL); // añado el manejador para el servicio ISR
-		gpio_set_intr_type(SALVAR,GPIO_INTR_NEGEDGE);  // habilito interrupción por flanco descendente (1->0)
+		gpio_set_intr_type(SALVAR,GPIO_INTR_ANYEDGE);  // habilito interrupción por flanco descendente (1->0)
 
 		gpio_pad_select_gpio(PULSOS);   //configuro el BOTON_SALVAR como un pin GPIO
 		gpio_set_direction(PULSOS, GPIO_MODE_DEF_INPUT);    // seleciono el PULSOS como pin de entrada
 		gpio_isr_handler_add(PULSOS, interrupcion_pulsos, NULL); // añado el manejador para el servicio ISR
 		gpio_set_intr_type(PULSOS,GPIO_INTR_POSEDGE);  // habilito interrupción por flanco descendente (1->0)
+		tg0_timer_init(TIMER_0, TEST_WITH_RELOAD, TIMER_INTERVAL0_SEC);
 
 	}else{
-	ESP_LOGI(MESH_TAG,"Configurando GPIO para medidor tipo RS485");
-	gpio_pad_select_gpio(RS485);
-	gpio_set_direction(RS485,GPIO_MODE_DEF_OUTPUT);
+		ESP_LOGI(MESH_TAG,"Configurando GPIO para medidor tipo RS485");
+		gpio_pad_select_gpio(RS485);
+		gpio_set_direction(RS485,GPIO_MODE_DEF_OUTPUT);
 	}
 	gpio_pad_select_gpio(LED_PAPA);
 	gpio_set_direction(LED_PAPA,GPIO_MODE_DEF_OUTPUT);
@@ -485,23 +568,33 @@ void nvs_pulsos(void *arg){
 
 	//Variables para conteo de reinicios
 	nvs_handle_t ctrl_pulsos;
-	uint64_t pulsos;
+	uint64_t pulsos,aux;
 	// NVS open
 	esp_err_t err;
+	aux = energy_ini;
 	float muestra_energy;
 	while(!esp_mesh_is_root()){
 			err = nvs_open("storage", NVS_READWRITE, &ctrl_pulsos);
 			if (err != ESP_OK) {
 				printf("Error (%s) abriendo el NVS!\n", esp_err_to_name(err));
 			}else{
-				xSemaphoreTake(smfNVS,portMAX_DELAY);
-				xQueuePeek(Cuenta_de_pulsos,&pulsos,portMAX_DELAY);
-				muestra_energy = (float)pulsos/(float)fconv;
-				err = nvs_set_u64(ctrl_pulsos, "energy", pulsos);
-				printf((err != ESP_OK) ? "Error pulse counter set!\n" : "Set Done energy %.6f kWh\n Pulsos: %llu\n",muestra_energy,pulsos);
-				err = nvs_commit(ctrl_pulsos);
-				printf((err != ESP_OK) ? "Error in pulse counter commit!\n" : "Commit Done\n");
-				close(ctrl_pulsos);
+				ESP_LOGI(MESH_TAG,"Esperando por evento");
+				xEventGroupWaitBits(prueba,BIT_0,pdFALSE,pdFALSE,portMAX_DELAY);
+				xEventGroupClearBits(prueba,BIT_0);
+				ESP_LOGI(MESH_TAG,"Ocurrio evento");
+				xQueuePeek(Cuenta_de_pulsos,&pulsos,pdMS_TO_TICKS(10));
+				if(pulsos!=aux && pulsos!=0){
+					muestra_energy = (float)pulsos/(float)fconv;
+					err = nvs_set_u64(ctrl_pulsos, "energy", pulsos);
+					printf((err != ESP_OK) ? "Error pulse counter set!\n" : "Set Done energy %.6f kWh\n Pulsos: %llu\n",muestra_energy,pulsos);
+					err = nvs_commit(ctrl_pulsos);
+					printf((err != ESP_OK) ? "Error in pulse counter commit!\n" : "Commit Done\n");
+					close(ctrl_pulsos);
+					timer_pause(TIMER_GROUP_0, TIMER_0);
+					timer_set_counter_value(TIMER_GROUP_0, TIMER_0, (uint64_t)0x00000000ULL);
+					ESP_LOGI(MESH_TAG,"Stop Timer y Reinicio desde guardado en NVS");
+					aux = pulsos;
+				}
 			}
 			}
 			ESP_LOGE(MESH_TAG,"La tarea de guardado en flash de pulsos fue eliminada");
@@ -542,6 +635,7 @@ void mesh_event_handler(void *arg, esp_event_base_t event_base,
 	char rx_rs485 [9] = "Rx_RS485";
 	char modbus_pulse [11] = "Commun P2P";
 	char count_pulse [10] = "Guardar P";
+	char timer_pulse [10] = "Timer NVS";
 	char nvs_pulse [8] = "Count P";
     mesh_addr_t id = {0,};
     static uint8_t last_layer = 0;
@@ -622,9 +716,15 @@ void mesh_event_handler(void *arg, esp_event_base_t event_base,
         			creador = vTaskB(rx_rs485);
         			if(creador){
         				xTaskCreatePinnedToCore(bus_rs485, rx_rs485, 3072*3, NULL, 5, NULL, 1);
+        				iniciarUART(tipo,baud_rate);
         			}
         		break;
         		case(pulsos):
+					creador = vTaskB(timer_pulse);
+					if(creador){
+						prueba = xEventGroupCreate();
+						xTaskCreatePinnedToCore(timer_count,timer_pulse,1024*3,NULL,5,NULL,1);
+					}
         			creador = vTaskB(modbus_pulse);
         			if(creador){
         				xTaskCreatePinnedToCore(modbus_tcpip_pulsos,modbus_pulse,3072*2,NULL,5,NULL,0);
@@ -637,6 +737,7 @@ void mesh_event_handler(void *arg, esp_event_base_t event_base,
         			if(creador){
         				xTaskCreatePinnedToCore(conteo_pulsos,count_pulse,3072*2,NULL,5,NULL,1);
         			}
+
         		break;
         		case(chino):
         			creador = vTaskB(rx_child);
@@ -646,6 +747,7 @@ void mesh_event_handler(void *arg, esp_event_base_t event_base,
         			creador = vTaskB(rx_rs485);
         			if(creador){
         				xTaskCreatePinnedToCore(bus_rs485, rx_rs485, 3072*3, NULL, 5, NULL, 1);
+        				iniciarUART(tipo,baud_rate);
         			}
         		break;
         		case(enlace):
@@ -796,11 +898,13 @@ void ip_event_handler(void *arg, esp_event_base_t event_base,
 /*Inicio Mesh*/
 
 void mesh_init(struct form_home form){
+
 	fconv = form.conversion;
 	port = form.port;
 	tipo = str2enum(form.tipo);
 	SLAVE_ID = form.slaveid;
 	energy_ini = form.energia;
+	baud_rate = form.baud_rate;
 
 	RxSocket = xQueueCreate(5,128);
 	TxRS485 = xQueueCreate(5,128);

@@ -26,6 +26,7 @@ struct form_home{
 	uint16_t conversion;
 	uint32_t baud_rate;
 };
+
 TaskHandle_t http_socket;
 
 typedef enum{
@@ -63,8 +64,6 @@ typedef union{
 		uint8_t hhhh8;
 	}u8;
 }energytype_t;
-
-
 
 tipo_de_medidor str2enum (const char *str);
 

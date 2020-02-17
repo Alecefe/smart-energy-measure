@@ -13,7 +13,7 @@
 #include "driver/timer.h"
 #include "math.h"
 
-#define PULSOS 0//23
+#define PULSOS 0
 #define SALVAR 22
 #define RS485 21
 #define LED_PAPA 2
@@ -26,6 +26,14 @@
 #define MODBUS_ENERGY_REG_INIT_POS_H (0x00)
 #define MODBUS_ENERGY_REG_INIT_POS_L (0x18)
 #define MODBUS_ENERGY_REG_LEN (0x04)
+
+#define TIMER_DIVIDER         16  //  Hardware timer clock divider
+#define TIMER_SCALE           (TIMER_BASE_CLK / TIMER_DIVIDER)  // convert counter value to seconds
+#define TIMER_INTERVAL0_SEC   (0.016) // sample test interval for the first timer
+#define TEST_WITHOUT_RELOAD   0        // testing will be done without auto reload
+#define TEST_WITH_RELOAD      1        // testing will be done with auto reload
+#define BIT_0 (1<<0)
+
 
 /*******************************************************
  *                Variable Definitions
@@ -43,6 +51,8 @@ QueueHandle_t Cuenta_de_pulsos;
 
 mesh_addr_t root_address;
 
+EventGroupHandle_t prueba;
+
 #ifdef CONFIG_EXAMPLE_IPV4
 #define HOST_IP_ADDR CONFIG_EXAMPLE_IPV4_ADDR
 #else
@@ -52,6 +62,15 @@ mesh_addr_t root_address;
 #define PORT CONFIG_EXAMPLE_PORT
 
 int men;
+
+EventGroupHandle_t prueba;
+
+typedef struct {
+    int type;  // the type of timer's event
+    int timer_group;
+    int timer_idx;
+    uint64_t timer_counter_value;
+} timer_event_t;
 
 
 
