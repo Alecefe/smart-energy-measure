@@ -104,12 +104,12 @@ static void uart_chino(void *arg){
 	vTaskDelete(NULL);
 }
 
-void iniciarUART()
+void iniciarUART(tipo_de_medidor tipo,uint32_t baud)
 {			                                                                        //
 
 	// Configuraci�n para el UART 1 -------------------------------------------------------//
 	uart_config_t configUART1 = {                                                          //
-	    .baud_rate = 9600,                                                               //
+	    .baud_rate = (int)baud,                                                               //
 	    .data_bits = UART_DATA_8_BITS,                                                     //
 	    .parity = UART_PARITY_DISABLE,                                                     //
 	    .stop_bits = UART_STOP_BITS_1,                                                     //                                                     //
@@ -123,7 +123,15 @@ void iniciarUART()
 	// Se coloca el modo rs485                                                           //
 	ESP_ERROR_CHECK(uart_set_mode(uart1, UART_MODE_RS485_HALF_DUPLEX));
 	RxRS485 = xQueueCreate(5,128);
-  	// xTaskCreate(uart_event_task, "uart_event_task", 2048, NULL, 5, NULL);
-	xTaskCreate(uart_chino, "UART CHINO", 2048, NULL, 5, NULL);
 
+	switch(tipo){
+	case(rs485):
+  			xTaskCreate(uart_event_task, "uart_event_task", 2048, NULL, 5, NULL);
+	break;
+	case(chino):
+			xTaskCreate(uart_chino, "UART CHINO", 2048, NULL, 5, NULL);
+	break;
+	default:
+	break;
+	}
 	}

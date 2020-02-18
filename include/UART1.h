@@ -38,5 +38,5 @@ typedef union{
 
 //static void uart_event_task(void *pvParameters);
 
-void iniciarUART();
+void iniciarUART(tipo_de_medidor tipo,uint32_t baud);
 #endif
