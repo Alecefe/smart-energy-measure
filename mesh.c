@@ -39,14 +39,15 @@ void IRAM_ATTR guadado_en_flash(void* arg)
 	xSemaphoreGiveFromISR(smfNVS,NULL);
 }
 
+/*
 void IRAM_ATTR timer_group0_isr(void *para)
 {
 	BaseType_t HigherPriorityTaskWoken =pdFALSE, xResult;
 	//Parametro de entrada el id del timer
     int timer_idx = (int) para;
 
-    /* Retrieve the interrupt status and the counter value
-       from the timer that reported the interrupt */
+    // Retrieve the interrupt status and the counter value
+       //from the timer that reported the interrupt
     uint32_t intr_status = TIMERG0.int_st_timers.val;
     TIMERG0.hw_timer[timer_idx].update = 1;
     uint64_t timer_counter_value =
@@ -59,8 +60,8 @@ void IRAM_ATTR timer_group0_isr(void *para)
     evt.timer_idx = timer_idx;
     evt.timer_counter_value = timer_counter_value;
 
-    /* Clear the interrupt
-       and update the alarm time for the timer with without reload */
+    //Clear the interrupt
+       //and update the alarm time for the timer with without reload
     if ((intr_status & BIT(timer_idx)) && timer_idx == TIMER_0) {
         evt.type = TEST_WITH_RELOAD;
         TIMERG0.int_clr_timers.t0 = 1;
@@ -68,16 +69,16 @@ void IRAM_ATTR timer_group0_isr(void *para)
         evt.type = -1; // not supported even type
     }
 
-    /* After the alarm has been triggered
-      we need enable it again, so it is triggered the next time */
+    // After the alarm has been triggered
+      //we need enable it again, so it is triggered the next time
     TIMERG0.hw_timer[timer_idx].config.alarm_en = TIMER_ALARM_EN;
     xResult = xEventGroupSetBitsFromISR(prueba,BIT_0,&HigherPriorityTaskWoken);
 
     if(xResult!=pdFAIL){
     	portYIELD_FROM_ISR();
     }
-}
-
+}*/
+/*
 static void tg0_timer_init(int timer_idx,
     bool auto_reload, double timer_interval_sec)
 {
@@ -91,18 +92,18 @@ static void tg0_timer_init(int timer_idx,
     config.auto_reload = auto_reload;
     timer_init(TIMER_GROUP_0, TIMER_0, &config);
 
-    /* Timer's counter will initially start from value below.
-       Also, if auto_reload is set, this value will be automatically reload on alarm */
+    //Timer's counter will initially start from value below.
+       //Also, if auto_reload is set, this value will be automatically reload on alarm
     timer_set_counter_value(TIMER_GROUP_0, TIMER_0, (uint64_t)0x00000000ULL);
 
-    /* Configure the alarm value and the interrupt on alarm. */
+    //Configure the alarm value and the interrupt on alarm.
     timer_set_alarm_value(TIMER_GROUP_0, TIMER_0, timer_interval_sec * TIMER_SCALE);
     timer_enable_intr(TIMER_GROUP_0, TIMER_0);
     timer_isr_register(TIMER_GROUP_0, TIMER_0, timer_group0_isr,
         (void *) timer_idx, ESP_INTR_FLAG_IRAM, NULL);
     ESP_LOGI(MESH_TAG,"Habilito interrupcion por timer");
-}
-
+}*/
+/*
 void timer_count(void *arg){
 	bool valor = false;
 	while(1){
@@ -118,7 +119,7 @@ void timer_count(void *arg){
 		}
 	}
 	ESP_LOGE(MESH_TAG,"Se elimino la tarea del timer");
-}
+}*/
 
 /****************************************/
 /**** Configuracion e inicializacion ****/
@@ -172,8 +173,8 @@ void config_gpio_pulsos(tipo_de_medidor tipo){
 		gpio_pad_select_gpio(PULSOS);   //configuro el BOTON_SALVAR como un pin GPIO
 		gpio_set_direction(PULSOS, GPIO_MODE_DEF_INPUT);    // seleciono el PULSOS como pin de entrada
 		gpio_isr_handler_add(PULSOS, interrupcion_pulsos, NULL); // añado el manejador para el servicio ISR
-		gpio_set_intr_type(PULSOS,GPIO_INTR_POSEDGE);  // habilito interrupción por flanco descendente (1->0)
-		tg0_timer_init(TIMER_0, TEST_WITH_RELOAD, TIMER_INTERVAL0_SEC);
+		gpio_set_intr_type(PULSOS,GPIO_INTR_NEGEDGE);  // habilito interrupción por flanco descendente (1->0)
+		//tg0_timer_init(TIMER_0, TEST_WITH_RELOAD, TIMER_INTERVAL0_SEC);
 
 	}else{
 		ESP_LOGI(MESH_TAG,"Configurando GPIO para medidor tipo RS485");
@@ -479,9 +480,11 @@ void bus_rs485(void *arg){
 				xQueueReceive(TxRS485,(uint8_t*)dataTx,portMAX_DELAY);
 				printf("Recibido en cola...\r\n");
 				txlen = dataTx[2]+dataTx[3];
+
 				txctrl = uart_write_bytes(uart1,(char *)aux,txlen);
 
 				if(txctrl>0){
+					printf("Tx FIFO:%u \r\n",txctrl);
 					ctrl_cola = xQueueReceive(RxRS485,(uint8_t*)tx_buf+4,pdMS_TO_TICKS(500));
 					if(ctrl_cola == pdTRUE){
 						tx_buf[0]=dataTx[0];
@@ -579,8 +582,9 @@ void nvs_pulsos(void *arg){
 				printf("Error (%s) abriendo el NVS!\n", esp_err_to_name(err));
 			}else{
 				ESP_LOGI(MESH_TAG,"Esperando por evento");
-				xEventGroupWaitBits(prueba,BIT_0,pdFALSE,pdFALSE,portMAX_DELAY);
-				xEventGroupClearBits(prueba,BIT_0);
+				//xEventGroupWaitBits(prueba,BIT_0,pdFALSE,pdFALSE,portMAX_DELAY);
+				//xEventGroupClearBits(prueba,BIT_0);
+				xSemaphoreTake(smfNVS,portMAX_DELAY);
 				ESP_LOGI(MESH_TAG,"Ocurrio evento");
 				xQueuePeek(Cuenta_de_pulsos,&pulsos,pdMS_TO_TICKS(10));
 				if(pulsos!=aux && pulsos!=0){
@@ -590,8 +594,8 @@ void nvs_pulsos(void *arg){
 					err = nvs_commit(ctrl_pulsos);
 					printf((err != ESP_OK) ? "Error in pulse counter commit!\n" : "Commit Done\n");
 					close(ctrl_pulsos);
-					timer_pause(TIMER_GROUP_0, TIMER_0);
-					timer_set_counter_value(TIMER_GROUP_0, TIMER_0, (uint64_t)0x00000000ULL);
+					//timer_pause(TIMER_GROUP_0, TIMER_0);
+					//timer_set_counter_value(TIMER_GROUP_0, TIMER_0, (uint64_t)0x00000000ULL);
 					ESP_LOGI(MESH_TAG,"Stop Timer y Reinicio desde guardado en NVS");
 					aux = pulsos;
 				}
@@ -635,7 +639,7 @@ void mesh_event_handler(void *arg, esp_event_base_t event_base,
 	char rx_rs485 [9] = "Rx_RS485";
 	char modbus_pulse [11] = "Commun P2P";
 	char count_pulse [10] = "Guardar P";
-	char timer_pulse [10] = "Timer NVS";
+	//char timer_pulse [10] = "Timer NVS";
 	char nvs_pulse [8] = "Count P";
     mesh_addr_t id = {0,};
     static uint8_t last_layer = 0;
@@ -720,11 +724,12 @@ void mesh_event_handler(void *arg, esp_event_base_t event_base,
         			}
         		break;
         		case(pulsos):
+        				/*
 					creador = vTaskB(timer_pulse);
 					if(creador){
 						prueba = xEventGroupCreate();
 						xTaskCreatePinnedToCore(timer_count,timer_pulse,1024*3,NULL,5,NULL,1);
-					}
+					}*/
         			creador = vTaskB(modbus_pulse);
         			if(creador){
         				xTaskCreatePinnedToCore(modbus_tcpip_pulsos,modbus_pulse,3072*2,NULL,5,NULL,0);

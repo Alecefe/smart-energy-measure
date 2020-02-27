@@ -12,6 +12,7 @@
 #include "UART1.h"
 #include "driver/timer.h"
 #include "math.h"
+#include "mdns.h"
 
 #define PULSOS 0
 #define SALVAR 22
