@@ -5,6 +5,7 @@
 #include "lwip/api.h"
 #include "esp_log.h"
 #include "WiFiconfig.h"
+#include "pruebaMdns.h"
 
 #define PUERTO 80
 

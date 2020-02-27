@@ -95,9 +95,10 @@ static void uart_chino(void *arg){
 			uart_read_bytes(UART_NUM_1,&rx_bufchino[2],length,portMAX_DELAY);
 			rx_bufchino[0] = 0x00;
 			rx_bufchino[1] = (uint8_t) length;
+			printf("Hola 1");
 			xQueueSendToFront(RxRS485,rx_bufchino,portMAX_DELAY);
 			uart_flush(UART_NUM_1);
-		}
+		}vTaskDelay(pdMS_TO_TICKS(20));
 
 	}
 	ESP_LOGE(uart_tag,"Se ha eliminado la tarea del medidor chino");
@@ -114,6 +115,7 @@ void iniciarUART(tipo_de_medidor tipo,uint32_t baud)
 	    .parity = UART_PARITY_DISABLE,                                                     //
 	    .stop_bits = UART_STOP_BITS_1,                                                     //                                                     //
 	};
+	printf("Config Baud rate %d\r\n",configUART1.baud_rate);
 	//
 	ESP_ERROR_CHECK(uart_param_config(uart1, &configUART1));                                                //
 	// Se configuran los terminales para los UART -----------------------------------------//

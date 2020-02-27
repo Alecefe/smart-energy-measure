@@ -211,12 +211,14 @@ const static char cierraHTML[] = "</html>";
 
 
 void set_form_flash_init(struct form_home form){
+
 	esp_err_t err;
 	nvs_handle_t ctrl_flash;
 	err = nvs_open("storage",NVS_READWRITE,&ctrl_flash);
 	if (err != ESP_OK) {
 		printf("Error (%s) opening NVS handle!\n", esp_err_to_name(err));
 	}else{
+
 		nvs_set_str(ctrl_flash,"ssid",form.ssid);
 
 		nvs_set_str(ctrl_flash,"password",form.password);
@@ -276,6 +278,7 @@ void get_form_flash(struct form_home *form){
 	char mac[17];
 	esp_err_t err;
 	nvs_handle_t ctrl_flash, ctrl_prueba;
+
 	err = nvs_open("storage",NVS_READWRITE,&ctrl_flash);
 	if (err != ESP_OK) {
 		printf("Error (%s) opening NVS handle!\n", esp_err_to_name(err));
@@ -349,7 +352,7 @@ void get_form_flash(struct form_home *form){
 				break;
 			}
 			}
-			nvs_get_u8(ctrl_prueba,"max_layer",&(form->max_layer));
+			err = nvs_get_u8(ctrl_prueba,"max_layer",&(form->max_layer));
 			switch(err){
 				case ESP_OK:
 					ESP_LOGI(nvs_tag,"Max. Layer en flash: %d",form->max_layer);
@@ -361,7 +364,7 @@ void get_form_flash(struct form_home *form){
 					printf("Error (%s) opening NVS handle!\n", esp_err_to_name(err));
 				break;
 			}
-			nvs_get_u8(ctrl_prueba,"max_sta",&(form->max_sta));
+			err = nvs_get_u8(ctrl_prueba,"max_sta",&(form->max_sta));
 			switch(err){
 				case ESP_OK:
 					ESP_LOGI(nvs_tag,"Max. Sta en flash: %d",form->max_sta);
@@ -373,7 +376,7 @@ void get_form_flash(struct form_home *form){
 					printf("Error (%s) opening NVS handle!\n", esp_err_to_name(err));
 				break;
 			}
-			nvs_get_u16(ctrl_prueba,"port",&(form->port));
+			err = nvs_get_u16(ctrl_prueba,"port",&(form->port));
 			switch(err){
 				case ESP_OK:
 					ESP_LOGI(nvs_tag,"Port en flash: %d",form->port);
@@ -456,7 +459,7 @@ void get_form_flash(struct form_home *form){
 					}
 					break;
 				case(chino):
-					err = nvs_get_u32(ctrl_prueba,"",&(form->baud_rate));
+					err = nvs_get_u32(ctrl_prueba,"baud",&(form->baud_rate));
 					switch(err){
 						case ESP_OK:
 							ESP_LOGI(nvs_tag,"Baud Rate en flash: %"PRIu32,form->baud_rate);
@@ -848,12 +851,23 @@ static void WEBlocal(struct netconn *conexion,struct netconn *close){
 	    }
 
 	    if (strncmp(buffer,"GET /?ssid=",sizeof("GET /?ssid=")-1)==0){
-			netconn_write(conexion, respuestaHTTP, sizeof(respuestaHTTP)-1,NETCONN_NOCOPY);
-			netconn_write(conexion, abreHTML, sizeof(abreHTML)-1, NETCONN_NOCOPY);
-			netconn_write(conexion, cabeceraHTML, sizeof(cabeceraHTML)-1, NETCONN_NOCOPY);
-			netconn_write(conexion, cuerpoHTML_INI, sizeof(cuerpoHTML_INI)-1, NETCONN_NOCOPY);
-			netconn_write(conexion, cuerpoALERTAok, sizeof(cuerpoALERTAok)-1, NETCONN_NOCOPY);
-			netconn_write(conexion, cierraHTML, sizeof(cierraHTML)-1, NETCONN_NOCOPY);
+	    	if (Llenar_form_home(buffer,home)){
+				netconn_write(conexion, respuestaHTTP, sizeof(respuestaHTTP)-1,NETCONN_NOCOPY);
+				netconn_write(conexion, abreHTML, sizeof(abreHTML)-1, NETCONN_NOCOPY);
+				netconn_write(conexion, cabeceraHTML, sizeof(cabeceraHTML)-1, NETCONN_NOCOPY);
+				netconn_write(conexion, cuerpoHTML_INI, sizeof(cuerpoHTML_INI)-1, NETCONN_NOCOPY);
+				netconn_write(conexion, cuerpoALERTAok, sizeof(cuerpoALERTAok)-1, NETCONN_NOCOPY);
+				netconn_write(conexion, cierraHTML, sizeof(cierraHTML)-1, NETCONN_NOCOPY);
+	    	}
+	    	else{
+				netconn_write(conexion, respuestaHTTP, sizeof(respuestaHTTP)-1,NETCONN_NOCOPY);
+				netconn_write(conexion, abreHTML, sizeof(abreHTML)-1, NETCONN_NOCOPY);
+				netconn_write(conexion, cabeceraHTML, sizeof(cabeceraHTML)-1, NETCONN_NOCOPY);
+				netconn_write(conexion, cuerpoALERTAnok, sizeof(cuerpoALERTAnok)-1, NETCONN_NOCOPY);
+				netconn_write(conexion, cuerpoHTML_INI, sizeof(cuerpoHTML_INI)-1, NETCONN_NOCOPY);
+				netconn_write(conexion, cierraHTML, sizeof(cierraHTML)-1, NETCONN_NOCOPY);
+
+			}
 		}
 
 	    if (strncmp(buffer,"GET /mqtt HTTP/1.1",sizeof("GET /mqtt HTTP/1.1")-1)==0){
@@ -1036,6 +1050,7 @@ static void WEBlocal(struct netconn *conexion,struct netconn *close){
 void tareaSOCKET(void *P){
 	esp_wifi_restore();
 	iniciar_wifi();
+	initialise_mdns();
 	struct netconn *conectar, *NuevaCon;
 	  err_t err;
 	  conectar = netconn_new(NETCONN_TCP);
