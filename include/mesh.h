@@ -27,14 +27,7 @@
 #define MODBUS_ENERGY_REG_INIT_POS_H (0x00)
 #define MODBUS_ENERGY_REG_INIT_POS_L (0x18)
 #define MODBUS_ENERGY_REG_LEN (0x04)
-
-#define TIMER_DIVIDER         16  //  Hardware timer clock divider
-#define TIMER_SCALE           (TIMER_BASE_CLK / TIMER_DIVIDER)  // convert counter value to seconds
-#define TIMER_INTERVAL0_SEC   (0.016) // sample test interval for the first timer
-#define TEST_WITHOUT_RELOAD   0        // testing will be done without auto reload
-#define TEST_WITH_RELOAD      1        // testing will be done with auto reload
 #define BIT_0 (1<<0)
-
 
 /*******************************************************
  *                Variable Definitions
