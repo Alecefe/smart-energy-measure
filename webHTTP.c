@@ -104,7 +104,7 @@ const static char cuerpoHTML[] = "<body id=\"todo\">"
 
 const static char cuerpoHTML_INI[] =
 		"<body id=\"todo\">"
-        "<div id=\"pagina\" style=\" display: block;height:100vh;padding=1%;background-color:blue; background-image: linear-gradient(to bottom right, white,blue,white);width: 100%;\">"
+        "<div id=\"pagina\" style=\" display: block;height:100vh;padding=1%;\">"
             "<aside id=\"menu\" style=\"width:20%;float:left; background-color: #eee;\">"
                     "<div class=\"vertical-menu\" style=\"height: 100vh;\">"
                             "<a href=\"mesh\" class=\"active\">Mesh Configuration</a>"
