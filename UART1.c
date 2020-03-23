@@ -99,7 +99,6 @@ static void uart_chino(void *arg){
 			xQueueSendToFront(RxRS485,rx_bufchino,portMAX_DELAY);
 			uart_flush(UART_NUM_1);
 		}vTaskDelay(pdMS_TO_TICKS(20));
-
 	}
 	ESP_LOGE(uart_tag,"Se ha eliminado la tarea del medidor chino");
 	vTaskDelete(NULL);
