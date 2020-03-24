@@ -16,7 +16,9 @@
 
 // Definiciones de SSID y password -------------------------//
 #define nombreWiFi "ATENITAS"
-#define claveWiFi  "ate12345"
+#define claveWiFi  "ate123456"
+#define ssid_ap "PruebaDeAcceso"
+#define clave_ap "polilla22"
 #define MAX_STA_CONN 10
 #define PIN_CONFIG_1 0
 // Funcion prototipo para inicializacion del WiFi ----------//
@@ -32,6 +34,7 @@ void supervisor_sta(void *arg);
 #define WITHOUT_RELOAD   0        // testing will be done without auto reload
 #define WITH_RELOAD      1        // testing will be done with auto reload
 
+uint8_t connection_trys;
 TaskHandle_t sup_sta;
 
 /************************************************************/
