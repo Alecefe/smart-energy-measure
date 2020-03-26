@@ -113,6 +113,8 @@ const static char cierra_cabeceraHTML[] = "</head>";
 
 const static char cuerpoHTML[] = "<body id=\"todo\">";
 
+const static char headersb[] = "<header class=\"barra\">ESP32 Main Configuration</header>";
+
 const static char header[] = "<header class=\"barra\">ESP32 Main Configuration <div class=\"mobile-menu\"> <button class=\"mobile-boton\" onclick=\"muestra_menu()\">Menu</button> </div> </header>";
 
 const static char cuerpoInicio[] =
@@ -770,7 +772,7 @@ static void WEBlocal(struct netconn *conexion,struct netconn *close){
 	    		}
 	    		printf("\n");
 
-	    		if(strncmp(buffer,"GET / HTTP/1.1",sizeof("GET / HTTP/1.1")-1)==0){
+	    		if((strncmp(buffer,"GET / HTTP/1.1",sizeof("GET / HTTP/1.1")-1)==0)||(strncmp(buffer,"GET /foobar HTTP/1.1",sizeof("GET /foobar HTTP/1.1")-1)==0)){
 
 	    			    	netconn_write(conexion, respuestaHTTP, sizeof(respuestaHTTP)-1,NETCONN_NOCOPY);
 	    					netconn_write(conexion, abreHTML, sizeof(abreHTML)-1, NETCONN_NOCOPY);
@@ -781,7 +783,7 @@ static void WEBlocal(struct netconn *conexion,struct netconn *close){
 	    					netconn_write(conexion, cierra_style, sizeof(cierra_style)-1, NETCONN_NOCOPY);
 	    					netconn_write(conexion, cierra_cabeceraHTML, sizeof(cierra_cabeceraHTML)-1, NETCONN_NOCOPY);
 	    					netconn_write(conexion, cuerpoHTML, sizeof(cuerpoHTML)-1, NETCONN_NOCOPY);
-	    					netconn_write(conexion, header, sizeof(header)-1, NETCONN_NOCOPY);
+	    					netconn_write(conexion, headersb, sizeof(headersb)-1, NETCONN_NOCOPY);
 	    					netconn_write(conexion, cuerpoInicio, sizeof(cuerpoInicio)-1, NETCONN_NOCOPY);
 	    					netconn_write(conexion, footer, sizeof(footer)-1, NETCONN_NOCOPY);
 	    					netconn_write(conexion, cierra_cuerpoHTML, sizeof(cierra_cuerpoHTML)-1, NETCONN_NOCOPY);
@@ -926,7 +928,7 @@ static void WEBlocal(struct netconn *conexion,struct netconn *close){
 				}
 	  	    }
 
-	    if (strncmp(buffer,"GET /?usuario",13)==0){
+	    if ((strncmp(buffer,"GET /?usuario",sizeof("GET /?usuario")-1)==0)||(strncmp(buffer,"GET /foobar?usuario",sizeof("GET /foobar?usuario")-1)==0)){
 
 	    	if(Llenar_intro(buffer)){
 	    		netconn_write(conexion, respuestaHTTP, sizeof(respuestaHTTP)-1,NETCONN_NOCOPY);

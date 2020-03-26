@@ -13,7 +13,7 @@
 #include <sys/socket.h>
 #include <netdb.h>
 #define CONFIG_MDNS_HOSTNAME "polilla"
-#define EXAMPLE_MDNS_INSTANCE "polilla22"
+#define EXAMPLE_MDNS_INSTANCE "ESP32-WebDemo"
 
 static char* generate_hostname();
 
