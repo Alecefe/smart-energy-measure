@@ -1,2 +1,4 @@
-*.mk
-
+build
+.cproject
+.project
+.settings/
