@@ -12,7 +12,7 @@ void app_main(){
 	tipo_de_medidor tipo;
 	tipo = str2enum(form.tipo);
 	if(gpio_get_level(PIN_CONFIG_1)==0){
-		xTaskCreatePinnedToCore(&tareaSOCKET,"SOCKET_HTTP",Pila*3,NULL,3,&http_socket,1);
+		ServidorHTTP();
 	}else{
 		ESP_LOGW(MESH_INIT,"SSID = %s",form.ssid);
 		ESP_LOGW(MESH_INIT,"PASSWORD = %s",form.password);

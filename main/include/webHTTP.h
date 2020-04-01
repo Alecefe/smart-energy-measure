@@ -2,6 +2,13 @@
 #ifndef MAIN_SERVERHTTP_H_
 #define MAIN_SERVERHTTP_H_
 // Inclusion de librerias ----------------------------------------//
+#include <string.h>
+#include <fcntl.h>
+#include "esp_http_server.h"
+#include "esp_system.h"
+#include "esp_log.h"
+#include "esp_vfs.h"
+#include "cJSON.h"
 #include "lwip/api.h"
 #include "esp_log.h"
 #include "WiFiconfig.h"
@@ -10,7 +17,7 @@
 #define PUERTO 80
 
 // Funcion prototipo RTOS ----------------------------------------//
-void tareaSOCKET(void *P);
+void ServidorHTTP();
 #endif
 
 struct form_home{
