@@ -6,6 +6,8 @@ const char *nvs_tag = "NVS";
 const char *http_server = "HTTP SERVER";
 static const char *REST_TAG = "esp-rest";
 static const char *TAG = "REQUEST";
+const char valid_user[]="usuario";
+const char valid_pass[]="contrasena";
 
 #define REST_CHECK(a, str, goto_tag, ...)                                              \
     do                                                                                 \
@@ -176,19 +178,62 @@ static esp_err_t form_mesh_req_handler(httpd_req_t *req){
     ESP_LOGI("DEBUG","BUFFER: %s",buf);
 
     cJSON *root = cJSON_Parse(buf);
-    /*asi tomariamos la data para la flash*/
-    /*
     char *aux_ssid = cJSON_GetObjectItem(root, "ssid")->valuestring;
     char *aux_password = cJSON_GetObjectItem(root, "password")->string;
     char *aux_meshID = cJSON_GetObjectItem(root, "meshID")->string;
     char* aux_mesh_password = cJSON_GetObjectItem(root, "mesh_password")->string;
     max_layer = cJSON_GetObjectItem(root, "max_layer")->valueint;
     max_sta = cJSON_GetObjectItem(root, "max_sta")->valueint;
-    port = cJSON_GetObjectItem(root, "port")->valueint;*/
-    //ESP_LOGI("JSON","SSID: %s, PASSWORD: %s, MESH_ID: %s, MESH_PASSWORD: %s, MAX_LAYER: %d,MAX_STA: %d, PORT: %d",aux_ssid,aux_password,aux_meshID,aux_mesh_password,max_layer,max_sta,port);
-    const char *sys_info = cJSON_Print(root);
+    port = cJSON_GetObjectItem(root, "port")->valueint;
+    ESP_LOGI("JSON","SSID: %s, PASSWORD: %s, MESH_ID: %s, MESH_PASSWORD: %s, MAX_LAYER: %d,MAX_STA: %d, PORT: %d",aux_ssid,aux_password,aux_meshID,aux_mesh_password,max_layer,max_sta,port);
 	cJSON_Delete(root);
     httpd_resp_sendstr(req, "Post control value successfully");
+    return ESP_OK;
+}
+
+static esp_err_t login_req_handler(httpd_req_t *req){
+//Simulador de datos en flash aqui iria funcion de tomar datos de la flash
+
+	//ESP_LOGI("DEBUG","DENTRO DE FUNCION");
+
+    int total_len = req->content_len;
+    int cur_len = 0;
+    char *buf = ((rest_server_context_t *)(req->user_ctx))->scratch;
+    int received = 0;
+    if (total_len >= SCRATCH_BUFSIZE) {
+        /* Respond with 500 Internal Server Error */
+        httpd_resp_send_err(req, HTTPD_500_INTERNAL_SERVER_ERROR, "content too long");
+        return ESP_FAIL;
+    }
+    while (cur_len < total_len) {
+        received = httpd_req_recv(req, buf + cur_len, total_len);
+        if (received <= 0) {
+            /* Respond with 500 Internal Server Error */
+            httpd_resp_send_err(req, HTTPD_500_INTERNAL_SERVER_ERROR, "Failed to post control value");
+            return ESP_FAIL;
+        }
+        cur_len += received;
+    }
+    buf[total_len] = '\0';
+
+    ESP_LOGI("DEBUG","BUFFER: %s",buf);
+
+    cJSON *root = cJSON_Parse(buf);
+
+    char* aux_usuario = cJSON_GetObjectItem(root,"usuario")->valuestring;
+    char* aux_contrasena = cJSON_GetObjectItem(root,"contrasena")->valuestring;
+    if( (strlen(aux_usuario)==strlen(valid_user))&&(strlen(aux_contrasena)==strlen(valid_pass))){
+    	if((strcmp(aux_usuario, valid_user)==0)&&(strcmp(aux_contrasena, valid_pass)==0)){
+			httpd_resp_sendstr(req, "valido");
+		}else{
+			httpd_resp_sendstr(req, "content no valido");
+		}
+    }else{
+    	httpd_resp_sendstr(req, "long no valido");
+    }
+    //const char *sys_info = cJSON_Print(root);
+	cJSON_Delete(root);
+
     return ESP_OK;
 }
 
@@ -215,10 +260,10 @@ static esp_err_t form_mesh_get_handler(httpd_req_t *req){
 	 cJSON_Delete(root);
 	 ESP_LOGI("JSON","%s",sys_info);
 
-	 uint16_t cuanto = get_real_size((char *)sys_info);
+	 uint16_t cuanto = strlen(sys_info);
 	 ESP_LOGI("DEBUG","%d",cuanto);
 
-	 httpd_resp_send(req, sys_info, sizeof(sys_info)-1);
+	 httpd_resp_send(req, sys_info, strlen(sys_info));
 
 	return ESP_OK;
 }
@@ -282,6 +327,15 @@ esp_err_t start_rest_server(const char *base_path)
 		.user_ctx = rest_context
 	};
 	httpd_register_uri_handler(server, &mesh_form_uri);
+
+	/* URI handler for getting web server files */
+	httpd_uri_t login_uri = {
+		.uri = "/login",
+		.method = HTTP_POST,
+		.handler = login_req_handler,
+		.user_ctx = rest_context
+	};
+	httpd_register_uri_handler(server, &login_uri);
 
     /* URI handler for getting web server files */
     httpd_uri_t common_get_uri = {
