@@ -3,6 +3,11 @@ function $(arg){
      return document.getElementById(String(arg));
  }
 
+function reset_form(){
+     $('usuario').value = null;
+     $('contrasena').value = null;
+}
+ 
 function user_review(){
 
      var req = new XMLHttpRequest();
@@ -16,6 +21,7 @@ function user_review(){
                location.href = "/paginas/meshconf.html";
                }else{
                     alert('Usuario o contraseña invalido');
+                    reset_form();
                }
           }
      }

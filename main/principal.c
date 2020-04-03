@@ -8,7 +8,7 @@ void app_main(){
 	config_gpio();
 	nvs_flash_init();
 	struct form_home form;
-	get_form_flash(&form);
+	get_form_flash_mesh(&form);
 	tipo_de_medidor tipo;
 	tipo = str2enum(form.tipo);
 	if(gpio_get_level(PIN_CONFIG_1)==0){

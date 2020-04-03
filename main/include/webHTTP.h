@@ -75,8 +75,8 @@ typedef union{
 
 tipo_de_medidor str2enum (const char *str);
 
-void set_form_flash(struct form_home form);
-void get_form_flash();
+void set_form_flash_mesh(struct form_home form);
+void get_form_flash_mesh(struct form_home *form);
 bool Llenar_intro(char *p);
 bool Llenar_form_home(char * p, struct form_home form1);
 /******************************************************************/
