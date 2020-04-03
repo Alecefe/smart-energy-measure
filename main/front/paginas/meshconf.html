@@ -1,0 +1,66 @@
+<!DOCTYPE html>
+<html lang="es" style="font-size: 20px;">
+    <head>
+        <meta charset="UTF-8">
+        <link rel="stylesheet" href="../css/style.css">
+        <script src="../js/boton.js"></script>
+        <script src="../js/llena.js"></script>
+        <title>Control</title>
+    
+    </head>
+    <body id="todo" onload="solicitudMesh()">  
+
+        <header class="barra">ESP32 Main Configuration
+                <div class="mobile-menu">
+                        <button class="mobile-boton" onclick="muestra_menu()">Menu</button>
+            
+                </div>
+        </header>
+        
+        <div class ="pagina" >
+
+
+            <aside class = "menu" >
+                    <div class="vertical-menu">
+                            <a href="meshconf.html" class="active">Mesh Configuration</a>
+                            <a href="modbus.html">MODBUS</a>
+                            <a href="mqtt.html">MQTT</a>
+                            <a href="modbusmaster.html">MODBUS Master</a>
+                            <a href="aboutUs.html">About Us</a>
+                        </div> 
+            </aside>    
+
+            <div class = "FormMesh" >
+                    <label style="font-weight: bold;">Node Configuration</label>
+                    <form name="FormConfig" style="margin: 10%;">
+                        <label id="SSID" >SSID:</label><br>
+                        <input class="opcion"type="text" name="ssid" id="ssid" required><br>
+                        <label >Password:</label><br>
+                        <input class="opcion"type="password" name="contrasena"id="password" required><br>
+                        <label >Mesh ID:</label><br>
+                        <input class="opcion"type="text" name="meshID"id="meshID" pattern="^([0-9a-f][0-9a-f]:){5}([0-9a-f][0-9a-f])$" placeholder="77:77:77:77:77:77" required><br>
+                        <label >Mesh AP Password:</label><br>
+                        <input class="opcion"type="password" name="meshAPpass" id="mesh_password"required><br>
+                        <label >Max. Layers:</label><br>
+                        <input class="opcion"type="number" name="layers" id="max_layer"min="10" max="25"placeholder="Between 10 - 25" required><br>
+                        <label >Max. STA:</label><br>
+                        <input class="opcion"type="number" name="estaciones" min="1" id="max_sta"max="9"placeholder="Between 1 - 9"required><br>
+                        <label >Port (Socket):</label><br>
+                        <input class="opcion"type="number" name="port" min="1" max="65535"id="port" placeholder="Between 0 - 65536"><br>
+                        <input class="opcion" type="button" name="submit" value="Submit"style="margin:1rem;" onclick="req_mesh()">
+                        <input class="opcion"type="button" name="enter" value="Cancel"style="margin:1rem;">
+                        
+                    </form>
+                    <form name="Reset ESP">
+                        <input type="submit" class = "restart"  name="reinicio" value="Start Mesh" runat="server" formmethod="post">
+                    </form>
+                </div>
+        </div>    
+        <footer class="barrabaja">
+            Estelio, Team Bunker Lab</br></br>
+            Except where otherwise noted, content on this site belongs to Estelio C.A. developed by Bunker Lab</br>
+             2020 &copyAll Right Reserved to Estelio C.A.
+
+        </footer>
+    </body>
+</html>

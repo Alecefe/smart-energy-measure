@@ -1,0 +1,44 @@
+<!DOCTYPE html>
+<html lang="es"style="font-size: 20px;">
+    <head>
+        <meta charset="UTF-8">
+        <title>Control</title>
+        <link rel="stylesheet" href="../css/style.css">
+        <script src="../js/boton.js"></script>
+    </head>
+    <body id="todo">  
+            <header class="barra">ESP32 Main Configuration
+                    <div class="mobile-menu">
+                            <button class="mobile-boton" onclick="muestra_menu()">Menu</button>
+                    </div>
+            </header>
+        
+        <div class="pagina" >
+            <aside class="menu">
+                    <div class="vertical-menu">
+                            <a href="meshconf.html" >Mesh Configuration</a>
+                            <a href="modbus.html">MODBUS</a>
+                            <a href="mqtt.html">MQTT</a>
+                            <a href="modbusmaster.html">MODBUS Master</a>
+                            <a href="aboutUs.html"class="active">About Us</a>
+                    </div> 
+            </aside>    
+            <div class="FormMesh" >
+                    <label style="font-weight: bold;">About Us</label></br>
+                    <p style="font-size: 1rem;">
+                            Lorem Ipsum es simplemente el texto de relleno de las imprentas y archivos de texto. Lorem Ipsum ha sido el texto de relleno estándar de las industrias desde el año 1500, cuando un impresor (N. del T. persona que se dedica a la imprenta) desconocido usó una galería de textos y los mezcló de tal manera que logró hacer un libro de textos especimen. No sólo sobrevivió 500 años, sino que tambien ingresó como texto de relleno en documentos electrónicos, quedando esencialmente igual al original. Fue popularizado en los 60s con la creación de las hojas "Letraset", las cuales contenian pasajes de Lorem Ipsum, y más recientemente con software de autoedición, como por ejemplo Aldus PageMaker, el cual incluye versiones de Lorem Ipsum.
+                    </p>
+                    <form name="Reset ESP">
+                            <input type="submit" class = "restart"  name="reinicio" value="Start Mesh" runat="server" formmethod="post">
+                        </form>
+            </div>
+            
+        </div>  
+        
+        <footer class="barrabaja">
+                Estelio, Team Bunker Lab</br></br>
+                Except where otherwise noted, content on this site belongs to Estelio C.A. developed by Bunker Lab</br>
+                 2020 &copyAll Right Reserved to Estelio C.A.
+        </footer>        
+    </body>
+</html>

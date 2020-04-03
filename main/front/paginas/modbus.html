@@ -1,0 +1,88 @@
+<!DOCTYPE html>
+<html lang="es" style="font-size: 20px;">
+    <head>
+        <meta charset="UTF-8">
+        <title>Control</title>
+        <link rel="stylesheet" href="../css/style.css">
+        <script src="../js/menu-medidor.js"></script>
+        <script src="../js/boton.js"></script>
+    
+    </head>
+    <body id="todo">  
+
+            <header class="barra">ESP32 Main Configuration
+                    <div class="mobile-menu">
+                            <button class="mobile-boton" onclick="muestra_menu()">Menu</button>
+                
+                    </div>
+            </header>
+            
+        
+        <div class="pagina" >
+            <aside class="menu" >
+                <div class="vertical-menu">
+                    <a href="meshconf.html" >Mesh Configuration</a>
+                    <a href="modbus.html"class="active">MODBUS</a>
+                    <a href="mqtt.html">MQTT</a>
+                    <a href="modbusmaster.html">MODBUS Master</a>
+                    <a href="aboutUs.html">About Us</a>
+                </div> 
+            </aside> 
+            <div class="FormMesh" >
+                   
+                    <label style="font-weight: bold;">MODBUS Configuration</label>
+                    <form name="FormMesh" style="margin: 10%;">
+                            <select id="tipo_med" class="tipo_medidor"name = "modoOutput" onchange="pulsos()">
+                                    <option value = "rs485">Standard RS485 Output</option>
+                                    <option value = "pulsos">Pulse Output</option>
+                                    <option value = "chino">LogoMeter RS485 Output</option>
+                                    <option value = "enlace">Link node</option>
+                            </select>
+                            
+
+                     <div style="display: none;"id="med_pulse">
+                            <br>
+                            <br>
+                        <label >Conversion factor[imp/kWh]:</label><br>
+						<input class="opcion"type="number" name="conversion" placeholder="imp/kWh"><br>
+						<label >Initial Energy [kWh]:</label><br>
+						<input class="opcion"type="text" name="energia"pattern="[0-9]+(\.[0-9]{1,2})%?" placeholder="Initial kWh"><br>
+                        <label >Slave ID:</label><br>
+						<input class="opcion"type="number" name="slaveid" placeholder="Id for pulse meter"><br>
+                    </div>   
+
+                    <div style="display: none;"id="med_rs485">
+                            <br>
+                            <br>
+                        <label >Baud Rate:</label><br>
+                        <input class="opcion"type="number" name="baud_rate" placeholder="Baudios"><br>
+                        
+
+                    </div>
+
+                        
+                        <br><br><br>
+
+						<input class="opcion"type="submit" name="submit" value="Submit"style="margin:1rem;">
+                        <input class="opcion"type="button" name="enter" value="Cancel"style="margin:1rem;">
+                        
+                    </form>
+                    <form name="Reset ESP">
+                            <input type="submit" class = "restart"  name="reinicio" value="Start Mesh" runat="server" formmethod="post">
+                        </form>
+            </div>
+
+           
+            
+        </div>    
+        
+        <footer class="barrabaja">
+                Estelio, Team Bunker Lab</br></br>
+                Except where otherwise noted, content on this site belongs to Estelio C.A. developed by Bunker Lab</br>
+                 2020 &copy All Right Reserved to Estelio C.A.
+    
+        </footer>
+        
+        
+    </body>
+</html>
