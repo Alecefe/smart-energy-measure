@@ -46,9 +46,9 @@
                         <label >Max. STA:</label><br>
                         <input class="opcion"type="number" name="estaciones" min="1" id="max_sta"max="9"placeholder="Between 1 - 9"required><br>
                         <label >Port (Socket):</label><br>
-                        <input class="opcion"type="number" name="port" min="1" max="65535"id="port" placeholder="Between 0 - 65536"><br>
-                        <input class="opcion" type="button" name="submit" value="Submit"style="margin:1rem;" onclick="req_mesh()">
-                        <input class="opcion"type="button" name="enter" value="Cancel"style="margin:1rem;">
+                        <input class="opcion"type="number" name="port" min="1" max="65535"id="port" placeholder="Between 0 - 65536" required><br>
+                        <input class="opcion" type="button" name="submit" value="Submit"style="margin:1rem;" onclick="return validar_form_mesh()">
+                        <input class="opcion"type="button" name="enter" value="Cancel"style="margin:1rem;" onclick="reset_form()">
                         
                     </form>
                     <form name="Reset ESP">

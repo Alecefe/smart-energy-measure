@@ -1,14 +1,18 @@
 
+var id_campos = ['usuario','contrasena'];
+
 function $(arg){
-     return document.getElementById(String(arg));
+     try{return document.getElementById(String(arg));}
+     catch(error){console.log(error);}
  }
 
 function reset_form(){
-     $('usuario').value = null;
-     $('contrasena').value = null;
+     for (i in id_campos){
+          $(id_campos[i]).value = '';
+     }
 }
- 
-function user_review(){
+
+function user_send(){
 
      var req = new XMLHttpRequest();
 
@@ -26,7 +30,7 @@ function user_review(){
           }
      }
       
-     for( i in myObj){
+     for(i in myObj){
           myObj[i] = $(i).value;
      }
 
@@ -34,4 +38,23 @@ function user_review(){
 
      req.open("POST", "/login", true);
      req.send(myObj_string);
+}
+
+function validar() {
+     var valor_campos = {"usuario" : null, "contrasena": null,};
+
+     valor_campos.usuario=$('usuario').value;
+     valor_campos.contrasena=$('contrasena').value;
+
+     for(i in valor_campos){
+          if (valor_campos[i]===''){
+               alert('Usuario y contraseña requeridos');
+               return false;
+          }
+          if (String(valor_campos[i]).length>15){
+               alert('El usuario o contraseña no debe contener más de 15 caracteres');
+               return false;
+          }
+     }
+     user_send();
 }

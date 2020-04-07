@@ -322,7 +322,7 @@ void get_form_flash_mesh(struct form_home *form){
 	nvs_close(ctrl_prueba);
 }
 
-bool Llenar_form_home(char * p, struct form_home form1){
+bool fill_form_mesh(char * p, struct form_home form1){
 	char *ini,aux,cono[2];
 	int count;
 
@@ -479,7 +479,7 @@ bool Llenar_form_home(char * p, struct form_home form1){
 		return true;
 }
 
-bool Llenar_form_modbus(char *p,struct form_home form){
+bool fill_form_modbus(char *p,struct form_home form){
 	char *ini;
 	int count;
 	tipo_de_medidor tipo;
@@ -696,9 +696,7 @@ static esp_err_t rest_common_get_handler(httpd_req_t *req)
     return ESP_OK;
 }
 
-static esp_err_t form_mesh_req_handler(httpd_req_t *req){
-//Simulador de datos en flash aqui iria funcion de tomar datos de la flash
-
+static esp_err_t form_mesh_req_handler(httpd_req_t *req){/*Recepción de formulario de configuración mesh*/
 	//ESP_LOGI("DEBUG","DENTRO DE FUNCION");
 
     int total_len = req->content_len;
@@ -738,11 +736,7 @@ static esp_err_t form_mesh_req_handler(httpd_req_t *req){
     return ESP_OK;
 }
 
-static esp_err_t login_req_handler(httpd_req_t *req){
-//Simulador de datos en flash aqui iria funcion de tomar datos de la flash
-
-	//ESP_LOGI("DEBUG","DENTRO DE FUNCION");
-
+static esp_err_t login_req_handler(httpd_req_t *req){/*Revisa que el usuario y contraseña sea el correcto*/
     int total_len = req->content_len;
     int cur_len = 0;
     char *buf = ((rest_server_context_t *)(req->user_ctx))->scratch;
@@ -778,7 +772,6 @@ static esp_err_t login_req_handler(httpd_req_t *req){
     }else{
     	httpd_resp_sendstr(req, "long no valido");
     }
-    //const char *sys_info = cJSON_Print(root);
 	cJSON_Delete(root);
 
     return ESP_OK;
