@@ -52,24 +52,31 @@ void set_form_flash_mesh(struct form_home form){
 		printf("Error (%s) opening NVS handle!\n\r", esp_err_to_name(err));
 	}else{
 
+		ESP_LOGI("FROM_NVS","%s",form.ssid);
 		err=nvs_set_str(ctrl_flash,"ssid",form.ssid);
 		if (err != ESP_OK) {printf("Error (%s) setting in flash ssid!\n\r", esp_err_to_name(err));}
 
+		ESP_LOGI("FROM_NVS","%s",form.password);
 		err=nvs_set_str(ctrl_flash,"password",form.password);
 		if (err != ESP_OK) {printf("Error (%s) setting in flash password!\n\r", esp_err_to_name(err));}
 
+		ESP_LOGI("FROM_NVS",MACSTR,MAC2STR(form.mesh_id));
 		err=nvs_set_blob(ctrl_flash,"meshid",form.mesh_id,sizeof(form.mesh_id));
 		if (err != ESP_OK) {printf("Error (%s) setting in flash mesh id!\n\r", esp_err_to_name(err));}
 
+		ESP_LOGI("FROM_NVS","%s",form.meshappass);
 		err=nvs_set_str(ctrl_flash,"meshpass",form.meshappass);
 		if (err != ESP_OK) {printf("Error (%s) setting in flash mesh password!\n\r", esp_err_to_name(err));}
 
+		ESP_LOGI("FROM_NVS","%d",form.max_layer);
 		err=nvs_set_u8(ctrl_flash,"max_layer",form.max_layer);
 		if (err != ESP_OK) {printf("Error (%s) setting in flash max layer!\n\r", esp_err_to_name(err));}
 
+		ESP_LOGI("FROM_NVS","%d",form.max_sta);
 		err=nvs_set_u8(ctrl_flash,"max_sta",form.max_sta);
 		if (err != ESP_OK) {printf("Error (%s) setting in flash max STA!\n\r", esp_err_to_name(err));}
 
+		ESP_LOGI("FROM_NVS","%d",form.port);
 		err=nvs_set_u16(ctrl_flash,"port",form.port);
 		if (err != ESP_OK) {printf("Error (%s) setting in flash port!\n\r", esp_err_to_name(err));}
 
@@ -322,7 +329,7 @@ void get_form_flash_mesh(struct form_home *form){
 	nvs_close(ctrl_prueba);
 }
 
-bool fill_form_mesh(char * p, struct form_home form){
+bool fill_form_mesh(char * p, struct form_home *form){
 
     cJSON *root = cJSON_Parse(p);
     char *eptr;
@@ -333,15 +340,15 @@ bool fill_form_mesh(char * p, struct form_home form){
     char *aux_ssid = cJSON_GetObjectItem(root, "ssid")->valuestring;
     if(strlen(aux_ssid)>20){
     	printf("SSID No válido");
-    	return false;}else{for (int i = 0; i<=strlen(aux_ssid);i++){form.ssid[i] = aux_ssid[i];}}
-	ESP_LOGW("FILL","SSID: %s",form.ssid);
+    	return false;}else{for (int i = 0; i<=strlen(aux_ssid);i++){form->ssid[i] = aux_ssid[i];}}
+	ESP_LOGW("FILL","SSID: %s",form->ssid);
 
     /*WiFi Pass*/
     char *aux_password = cJSON_GetObjectItem(root, "password")->valuestring;
     if(strlen(aux_password)>20){
     	printf("Clave WiFi No válida");
-    	return false;}else{for (int i = 0; i<=strlen(aux_password);i++){form.password[i] = aux_password[i];}}
-    ESP_LOGW("FILL","WiFi Pass: %s",form.password);
+    	return false;}else{for (int i = 0; i<=strlen(aux_password);i++){form->password[i] = aux_password[i];}}
+    ESP_LOGW("FILL","WiFi Pass: %s",form->password);
 
     /*Mesh ID*/
     char *aux_meshID = cJSON_GetObjectItem(root, "meshID")->valuestring;
@@ -357,37 +364,36 @@ bool fill_form_mesh(char * p, struct form_home form){
     			return false;
     	}
     }
-
     for(int i = 0; i<18;i++){
     	if(aux_meshID[i]>0x60){aux_meshID[i]-=0x57;}
     	if(aux_meshID[i+1]>0x60){aux_meshID[i+1]-=0x57;}
-    	form.mesh_id[i/3]=((0x0f&aux_meshID[i])<<4)|(0x0f&aux_meshID[i+1]);
+    	form->mesh_id[i/3]=((0x0f&aux_meshID[i])<<4)|(0x0f&aux_meshID[i+1]);
     	i+=2;
     }
-    ESP_LOGW("FILL","meshID: "MACSTR ,MAC2STR(form.mesh_id));
+    ESP_LOGW("FILL","meshID: "MACSTR ,MAC2STR(form->mesh_id));
 
     /*Mesh access password*/
     char* aux_mesh_password = cJSON_GetObjectItem(root, "mesh_password")->valuestring;
     if(strlen(aux_mesh_password)<6||strlen(aux_mesh_password)>15){
     	printf("Contraseña de la red mesh no válida");
     	return false;
-    }else{ for(int i = 0; i<=strlen(aux_mesh_password);i++){form.meshappass[i]=aux_mesh_password[i];}}
-    ESP_LOGW("FILL","Mesh access password: %s",form.meshappass);
+    }else{ for(int i = 0; i<=strlen(aux_mesh_password);i++){form->meshappass[i]=aux_mesh_password[i];}}
+    ESP_LOGW("FILL","Mesh access password: %s",form->meshappass);
 
     /*Max Layer*/
     uint8_t aux_max_layer = (uint8_t) strtoul(cJSON_GetObjectItem(root, "max_layer")->valuestring,&eptr,10);
-    if(aux_max_layer>=10 && aux_max_layer<=25){form.max_layer = aux_max_layer;}else{return false;}
-    ESP_LOGW("FILL","Layers: %d", form.max_layer);
+    if(aux_max_layer>=10 && aux_max_layer<=25){form->max_layer = aux_max_layer;}else{return false;}
+    ESP_LOGW("FILL","Layers: %d", form->max_layer);
 
     /*Max sta*/
     uint8_t aux_max_sta = (uint8_t) strtoul(cJSON_GetObjectItem(root, "max_sta")->valuestring,&eptr,10);
-    if(aux_max_sta>=1 && aux_max_sta <=9){form.max_sta = aux_max_sta;}else{return false;}
-    ESP_LOGW("FILL","STA: %d", form.max_sta);
+    if(aux_max_sta>=1 && aux_max_sta <=9){form->max_sta = aux_max_sta;}else{return false;}
+    ESP_LOGW("FILL","STA: %d", form->max_sta);
 
     /*Port*/
     uint32_t aux_port = (uint32_t) strtoul(cJSON_GetObjectItem(root, "port")->valuestring,&eptr,10);
-    if(aux_port<=65535){form.port = (uint16_t)aux_port;}else{return false;}
-    ESP_LOGW("FILL","Port: %d", form.port);
+    if(aux_port<=65535){form->port = (uint16_t)aux_port;}else{return false;}
+    ESP_LOGW("FILL","Port: %d", form->port);
 
 	cJSON_Delete(root);
 	return true;
@@ -632,7 +638,7 @@ static esp_err_t form_mesh_req_handler(httpd_req_t *req){/*Recepción de formula
     buf[total_len] = '\0';
 
     ESP_LOGI("DEBUG","BUFFER: %s",buf);
-    if(fill_form_mesh(buf, fweb_mesh_config)){
+    if(fill_form_mesh(buf, &fweb_mesh_config)){
     	set_form_flash_mesh(fweb_mesh_config);
     	httpd_resp_sendstr(req, "Success");
     	return ESP_OK;
