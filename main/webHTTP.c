@@ -24,16 +24,8 @@ const char valid_pass[]="contrasena";
 
 bool ahora = true;
 conversion_t conversion[4] = {{rs485,"rs485"},{pulsos,"pulsos"},{chino,"chino"},{enlace,"enlace"}};
-uint8_t hola_mundo;
-char ssid[20] = "M3M0";
-char password[20] = "12050808";
-uint8_t meshID[6] = {0x77,0x77,0x77,0x77,0x77,0x77};
-char mesh_password[20] = "-Capacho10";
-uint8_t max_layer = 12;
-uint8_t max_sta = 8;
-uint16_t port = 8080;
 
-struct form_home prueba1;
+struct form_home fweb_mesh_config;
 
 typedef struct rest_server_context {
     char base_path[ESP_VFS_PATH_MAX + 1];
@@ -57,24 +49,32 @@ void set_form_flash_mesh(struct form_home form){
 	nvs_handle_t ctrl_flash;
 	err = nvs_open("storage",NVS_READWRITE,&ctrl_flash);
 	if (err != ESP_OK) {
-		printf("Error (%s) opening NVS handle!\n", esp_err_to_name(err));
+		printf("Error (%s) opening NVS handle!\n\r", esp_err_to_name(err));
 	}else{
 
-		nvs_set_str(ctrl_flash,"ssid",form.ssid);
+		err=nvs_set_str(ctrl_flash,"ssid",form.ssid);
+		if (err != ESP_OK) {printf("Error (%s) setting in flash ssid!\n\r", esp_err_to_name(err));}
 
-		nvs_set_str(ctrl_flash,"password",form.password);
+		err=nvs_set_str(ctrl_flash,"password",form.password);
+		if (err != ESP_OK) {printf("Error (%s) setting in flash password!\n\r", esp_err_to_name(err));}
 
-		nvs_set_blob(ctrl_flash,"meshid",form.mesh_id,sizeof(form.mesh_id));
+		err=nvs_set_blob(ctrl_flash,"meshid",form.mesh_id,sizeof(form.mesh_id));
+		if (err != ESP_OK) {printf("Error (%s) setting in flash mesh id!\n\r", esp_err_to_name(err));}
 
-		nvs_set_str(ctrl_flash,"meshpass",form.meshappass);
+		err=nvs_set_str(ctrl_flash,"meshpass",form.meshappass);
+		if (err != ESP_OK) {printf("Error (%s) setting in flash mesh password!\n\r", esp_err_to_name(err));}
 
-		nvs_set_u8(ctrl_flash,"max_layer",form.max_layer);
+		err=nvs_set_u8(ctrl_flash,"max_layer",form.max_layer);
+		if (err != ESP_OK) {printf("Error (%s) setting in flash max layer!\n\r", esp_err_to_name(err));}
 
-		nvs_set_u8(ctrl_flash,"max_sta",form.max_sta);
+		err=nvs_set_u8(ctrl_flash,"max_sta",form.max_sta);
+		if (err != ESP_OK) {printf("Error (%s) setting in flash max STA!\n\r", esp_err_to_name(err));}
 
-		nvs_set_u16(ctrl_flash,"port",form.port);
+		err=nvs_set_u16(ctrl_flash,"port",form.port);
+		if (err != ESP_OK) {printf("Error (%s) setting in flash port!\n\r", esp_err_to_name(err));}
 
 		err = nvs_commit(ctrl_flash);
+		if (err != ESP_OK) {printf("Error (%s) while the commit stage!\n\r", esp_err_to_name(err));}
 	}
 	nvs_close(ctrl_flash);
 }
@@ -322,164 +322,78 @@ void get_form_flash_mesh(struct form_home *form){
 	nvs_close(ctrl_prueba);
 }
 
-bool fill_form_mesh(char * p, struct form_home form1){
-	char *ini,aux,cono[2];
-	int count;
+bool fill_form_mesh(char * p, struct form_home form){
 
-	/*Extrayendo SSID*/
-    ini=strstr(p,"ssid=");
-	if(ini!=NULL){
-		count = 0;
-		for(int i =0;i<20;i++){
-			form1.ssid[i]=0x00;
-		}
-		ini+=sizeof("ssid=")-1;
-		for(int i=0; ini[i]!='&';i++){
-			if(strncmp(&ini[i],"%",1)==0){
-				cono[0]=ini[i+1];
-				cono[1]=ini[i+2];
-				if(cono[0]>0x40&&cono[0]<0x47){
-					cono[0]-= 0x37;
-				}
-				if(cono[1]>0x40&&cono[1]<0x47){
-					cono[1]-=0x37;
-				}
-				aux = ((0x0f&cono[0])<<4)|(0x0f&cono[1]);
-				form1.ssid[count]=aux;
-				i+=2;
-				count++;
-			}else{
-				form1.ssid[count]=ini[i];
-				count++;
-				}
-		}
-		if (count == 0) return false;
-		printf("Usuario: %s\r\n",form1.ssid);
-	}
-	/*Extrayendo Password WIFI*/
-    ini=strstr(p,"contrasena=");
-	if(ini!=NULL){
-		count=0;
-		for(int i =0;i<20;i++){
-			form1.password[i]=0x00;
-		}
-		ini+=sizeof("contrasena=")-1;
-		for(int i=0; ini[i]!='&';i++){
-			if(strncmp(&ini[i],"%",1)==0){
-				cono[0]=ini[i+1];
-				cono[1]=ini[i+2];
-				if(cono[0]>0x40&&cono[0]<0x47){
-					cono[0]-= 0x37;
-				}
-				if(cono[1]>0x40&&cono[1]<0x47){
-					cono[1]-=0x37;
-				}
-				aux = ((0x0f&cono[0])<<4)|(0x0f&cono[1]);
-				form1.password[count]=aux;
-				i+=2;
-				count++;
-			}else{
-				form1.password[count]=ini[i];
-				count++;}
-		}
-		if (count == 0) return false;
-		printf("Contrasena: %s\r\n",form1.password);
-	}
-	/*Extrayendo Mesh ID   */
-    ini=strstr(p,"meshID=");
-	if(ini!=NULL){
-		count=0;
-		ini+=sizeof("meshID=")-1;
-		for(int i=0; ini[i]!='&';i+=2){
-			if(ini[i]=='%'){
-				i++;
-			}else{
-				if(ini[i]>0x60){
-					ini[i]-= 0x57;
-				}
-				if(ini[i+1]>0x60){
-					ini[i+1]-=0x57;
-				}
-				aux = ((0x0f&ini[i])<<4)|(0x0f&ini[i+1]);
-				form1.mesh_id[count]=aux;
-				count++;
-			}
-		}
-		if (count == 0) return false;
-		printf("meshID:"MACSTR"\r\n",MAC2STR(form1.mesh_id));
-	}
-	/*Extrayendo Mesh AP Password*/
-    ini=strstr(p,"meshAPpass=");
-	if(ini!=NULL){
-		count=0;
-		for(int i =0;i<20;i++){
-			form1.meshappass[i]=0x00;
-		}
-		ini+=sizeof("meshAPpass=")-1;
-		for(int i=0; ini[i]!='&';i++){
-			if(strncmp(&ini[i],"%",1)==0){
-				cono[0]=ini[i+1];
-				cono[1]=ini[i+2];
-				if(cono[0]>0x40&&cono[0]<0x47){
-					cono[0]-= 0x37;
-				}
-				if(cono[1]>0x40&&cono[1]<0x47){
-					cono[1]-=0x37;
-				}
-				aux = ((0x0f&cono[0])<<4)|(0x0f&cono[1]);
-				form1.meshappass[count]=aux;
-				i+=2;
-				count++;
-			}else{
-				form1.meshappass[count]=ini[i];
-				count++;}
-		}
-		if (count == 0) return false;
-		printf("Mesh AP Password: %s\r\n",form1.meshappass);
-	}
+    cJSON *root = cJSON_Parse(p);
+    char *eptr;
+    char *sys_info = cJSON_Print(root);
+    ESP_LOGI("FILL","%s",sys_info);
 
+    /*SSID*/
+    char *aux_ssid = cJSON_GetObjectItem(root, "ssid")->valuestring;
+    if(strlen(aux_ssid)>20){
+    	printf("SSID No válido");
+    	return false;}else{for (int i = 0; i<=strlen(aux_ssid);i++){form.ssid[i] = aux_ssid[i];}}
+	ESP_LOGW("FILL","SSID: %s",form.ssid);
 
-	/*Extrayendo Layers*/
-    ini=strstr(p,"layers=");
-	if(ini!=NULL){
-		ini+=sizeof("layers=")-1;
-		aux = ((*ini)-'0')*10+(*(ini+1)-'0');
-		if(aux<25) {
-			form1.max_layer=aux;
-			printf("Max. Layer: %d\r\n",form1.max_layer);
-		}else return false;
-	}
-	/*Extrayendo STA*/
-	    ini=strstr(p,"estaciones=");
-		if(ini!=NULL){
-			ini+=sizeof("estaciones=")-1;
-			aux = *(ini)-'0';
-			if(aux<=9) {
-				form1.max_sta=aux;
-				printf("Max. sta: %d\r\n",form1.max_sta);
-			}else return false;
-		}
-		/*Extrayendo PORT*/
-		ini=strstr(p,"port=");
+    /*WiFi Pass*/
+    char *aux_password = cJSON_GetObjectItem(root, "password")->valuestring;
+    if(strlen(aux_password)>20){
+    	printf("Clave WiFi No válida");
+    	return false;}else{for (int i = 0; i<=strlen(aux_password);i++){form.password[i] = aux_password[i];}}
+    ESP_LOGW("FILL","WiFi Pass: %s",form.password);
 
-		if(ini!=NULL){
-			int aux1;
-			char puerto[5];
-			ini+=sizeof("port=")-1;
-			for(int i = 0; ini[i]!='&';i++){
-				puerto[i]=ini[i];
-			}
-			aux1 = atoi(puerto);
-			if(aux1<=65536) {
-				form1.port=(uint16_t)aux1;
-				printf("PORT: %d\r\n",form1.port);
-			}else return false;
-		}
-		set_form_flash_mesh(form1);
-		return true;
+    /*Mesh ID*/
+    char *aux_meshID = cJSON_GetObjectItem(root, "meshID")->valuestring;
+    if(strlen(aux_meshID)!=17){
+    	printf("Mesh ID No válida : %s %d", aux_meshID,strlen(aux_meshID));
+    	return false;}
+    for(int i = 0; i<17;i++){
+    	if((i==2||i==5||i==8||i==11||i==14) && aux_meshID[i]!=':'){
+    		printf("Mesh ID No válida aux_meshID[%d]=%c",i,aux_meshID[i]);
+    		return false;
+    	}else if (!((aux_meshID[i]>=0x30 && aux_meshID[i]<=0x39)||(aux_meshID[i]>=0x61||aux_meshID[i]<=0x66))){
+    			printf("Mesh ID No válida caractér no válido [%d]", i);
+    			return false;
+    	}
+    }
+
+    for(int i = 0; i<18;i++){
+    	if(aux_meshID[i]>0x60){aux_meshID[i]-=0x57;}
+    	if(aux_meshID[i+1]>0x60){aux_meshID[i+1]-=0x57;}
+    	form.mesh_id[i/3]=((0x0f&aux_meshID[i])<<4)|(0x0f&aux_meshID[i+1]);
+    	i+=2;
+    }
+    ESP_LOGW("FILL","meshID: "MACSTR ,MAC2STR(form.mesh_id));
+
+    /*Mesh access password*/
+    char* aux_mesh_password = cJSON_GetObjectItem(root, "mesh_password")->valuestring;
+    if(strlen(aux_mesh_password)<6||strlen(aux_mesh_password)>15){
+    	printf("Contraseña de la red mesh no válida");
+    	return false;
+    }else{ for(int i = 0; i<=strlen(aux_mesh_password);i++){form.meshappass[i]=aux_mesh_password[i];}}
+    ESP_LOGW("FILL","Mesh access password: %s",form.meshappass);
+
+    /*Max Layer*/
+    uint8_t aux_max_layer = (uint8_t) strtoul(cJSON_GetObjectItem(root, "max_layer")->valuestring,&eptr,10);
+    if(aux_max_layer>=10 && aux_max_layer<=25){form.max_layer = aux_max_layer;}else{return false;}
+    ESP_LOGW("FILL","Layers: %d", form.max_layer);
+
+    /*Max sta*/
+    uint8_t aux_max_sta = (uint8_t) strtoul(cJSON_GetObjectItem(root, "max_sta")->valuestring,&eptr,10);
+    if(aux_max_sta>=1 && aux_max_sta <=9){form.max_sta = aux_max_sta;}else{return false;}
+    ESP_LOGW("FILL","STA: %d", form.max_sta);
+
+    /*Port*/
+    uint32_t aux_port = (uint32_t) strtoul(cJSON_GetObjectItem(root, "port")->valuestring,&eptr,10);
+    if(aux_port<=65535){form.port = (uint16_t)aux_port;}else{return false;}
+    ESP_LOGW("FILL","Port: %d", form.port);
+
+	cJSON_Delete(root);
+	return true;
 }
 
-bool fill_form_modbus(char *p,struct form_home form){
+bool fill_form_modbus(char *p, struct form_home form){
 	char *ini;
 	int count;
 	tipo_de_medidor tipo;
@@ -613,7 +527,6 @@ bool fill_form_modbus(char *p,struct form_home form){
 	return true;
 }
 
-
 /* Set HTTP response content type according to file extension */
 static esp_err_t set_content_type_from_file(httpd_req_t *req, const char *filepath)
 {
@@ -697,7 +610,6 @@ static esp_err_t rest_common_get_handler(httpd_req_t *req)
 }
 
 static esp_err_t form_mesh_req_handler(httpd_req_t *req){/*Recepción de formulario de configuración mesh*/
-	//ESP_LOGI("DEBUG","DENTRO DE FUNCION");
 
     int total_len = req->content_len;
     int cur_len = 0;
@@ -720,23 +632,18 @@ static esp_err_t form_mesh_req_handler(httpd_req_t *req){/*Recepción de formula
     buf[total_len] = '\0';
 
     ESP_LOGI("DEBUG","BUFFER: %s",buf);
+    if(fill_form_mesh(buf, fweb_mesh_config)){
+    	set_form_flash_mesh(fweb_mesh_config);
+    	httpd_resp_sendstr(req, "Success");
+    	return ESP_OK;
+    }else{
+    	httpd_resp_sendstr(req, "Error");
+    	return ESP_FAIL;
+    }
 
-    cJSON *root = cJSON_Parse(buf);
-    char *aux_ssid = cJSON_GetObjectItem(root, "ssid")->valuestring;
-    char *aux_password = cJSON_GetObjectItem(root, "password")->string;
-    char *aux_meshID = cJSON_GetObjectItem(root, "meshID")->string;
-    char* aux_mesh_password = cJSON_GetObjectItem(root, "mesh_password")->string;
-    max_layer = cJSON_GetObjectItem(root, "max_layer")->valueint;
-    max_sta = cJSON_GetObjectItem(root, "max_sta")->valueint;
-    port = cJSON_GetObjectItem(root, "port")->valueint;
-    ESP_LOGI("JSON","SSID: %s, PASSWORD: %s, MESH_ID: %s, MESH_PASSWORD: %s, MAX_LAYER: %d,MAX_STA: %d, PORT: %d",aux_ssid,aux_password,aux_meshID,aux_mesh_password,max_layer,max_sta,port);
-	cJSON_Delete(root);
-
-    httpd_resp_sendstr(req, "Post control value successfully");
-    return ESP_OK;
 }
 
-static esp_err_t login_req_handler(httpd_req_t *req){/*Revisa que el usuario y contraseña sea el correcto*/
+static esp_err_t login_req_handler(httpd_req_t *req){/*Revisa que el usuario y contraseña del login sea el correcto*/
     int total_len = req->content_len;
     int cur_len = 0;
     char *buf = ((rest_server_context_t *)(req->user_ctx))->scratch;
@@ -777,26 +684,25 @@ static esp_err_t login_req_handler(httpd_req_t *req){/*Revisa que el usuario y c
     return ESP_OK;
 }
 
-static esp_err_t form_mesh_get_handler(httpd_req_t *req){
-//Simulador de datos en flash aqui iria funcion de tomar datos de la flash
+static esp_err_t form_mesh_get_handler(httpd_req_t *req){/*Toma los datos de la mesh en flash y los sube al formulario mesh*/
 
 	ESP_LOGI(TAG,"req->uri: %s",req->uri);
 
-	get_form_flash_mesh(&prueba1);
+	get_form_flash_mesh(&fweb_mesh_config);
 	httpd_resp_set_status(req, HTTPD_200);
 	httpd_resp_set_type(req, HTTPD_TYPE_JSON);
 
 	 char mesh_id [18] = {0,};
-	 sprintf(mesh_id,MACSTR,MAC2STR(meshID));
+	 sprintf(mesh_id,MACSTR,MAC2STR(fweb_mesh_config.mesh_id));
 
 	 cJSON *root = cJSON_CreateObject();
-	 cJSON_AddStringToObject(root, "ssid", prueba1.ssid);
-	 cJSON_AddStringToObject(root, "password", password);
+	 cJSON_AddStringToObject(root, "ssid", fweb_mesh_config.ssid);
+	 cJSON_AddStringToObject(root, "password", fweb_mesh_config.password);
 	 cJSON_AddStringToObject(root, "meshID", mesh_id);
-	 cJSON_AddStringToObject(root, "mesh_password", mesh_password);
-	 cJSON_AddNumberToObject(root, "max_layer", max_layer);
-	 cJSON_AddNumberToObject(root, "max_sta", max_sta);
-	 cJSON_AddNumberToObject(root, "port", port);
+	 cJSON_AddStringToObject(root, "mesh_password", fweb_mesh_config.meshappass);
+	 cJSON_AddNumberToObject(root, "max_layer", fweb_mesh_config.max_layer);
+	 cJSON_AddNumberToObject(root, "max_sta", fweb_mesh_config.max_sta);
+	 cJSON_AddNumberToObject(root, "port", fweb_mesh_config.port);
 	 const char *sys_info = cJSON_Print(root);
 	 cJSON_Delete(root);
 	 ESP_LOGI("JSON","%s",sys_info);

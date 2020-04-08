@@ -32,7 +32,7 @@
 
             <div class = "FormMesh" >
                     <label style="font-weight: bold;">Node Configuration</label>
-                    <form name="FormConfig" style="margin: 10%;">
+                    <form name="FormConfig" style="margin: 10%;" onload="solicitudMesh()">
                         <label id="SSID" >SSID:</label><br>
                         <input class="opcion"type="text" name="ssid" id="ssid" required><br>
                         <label >Password:</label><br>
@@ -44,7 +44,7 @@
                         <label >Max. Layers:</label><br>
                         <input class="opcion"type="number" name="layers" id="max_layer"min="10" max="25"placeholder="Between 10 - 25" required><br>
                         <label >Max. STA:</label><br>
-                        <input class="opcion"type="number" name="estaciones" min="1" id="max_sta"max="9"placeholder="Between 1 - 9"required><br>
+                        <input class="opcion"type="number" name="estaciones" min="1" id="max_sta" max="9"placeholder="Between 1 - 9"required><br>
                         <label >Port (Socket):</label><br>
                         <input class="opcion"type="number" name="port" min="1" max="65535"id="port" placeholder="Between 0 - 65536" required><br>
                         <input class="opcion" type="button" name="submit" value="Submit"style="margin:1rem;" onclick="return validar_form_mesh()">

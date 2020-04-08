@@ -44,7 +44,10 @@ function req_mesh(){
 
     req.onreadystatechange = function(){
         if(this.readyState==4 && this.status==200){
-
+            console.log(this.responseText);
+            if(this.responseText==='Error'){alert('Error almacenando la configuración')};
+            if(this.responseText==='Success'){alert('Data almacenada satisfactoriamente')};
+            
         }
     }
 
@@ -70,8 +73,6 @@ function validar_form_mesh(){
     valor_campos.port = $('port').value;
 
     re = /^[0-9a-fA-Z]{1,2}([\.:-])(?:[0-9a-fA-Z]{1,2}\1){4}[0-9a-fA-Z]{1,2}$/
-
-    console.log(valor_campos);
 
     for(i in valor_campos){
         if (valor_campos[i]===''){
@@ -130,6 +131,6 @@ function validar_form_mesh(){
         if (valor_campos.port < 0){$('port').value='0'}
         return false;
     }
-
+    console.log(valor_campos);
     req_mesh();
 }

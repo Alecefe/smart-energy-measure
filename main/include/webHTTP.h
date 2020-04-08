@@ -78,7 +78,7 @@ tipo_de_medidor str2enum (const char *str);
 void set_form_flash_mesh(struct form_home form);
 void set_form_flash_modbus(struct form_home form);
 void get_form_flash_mesh(struct form_home *form);
-bool fill_form_mesh(char * p, struct form_home form1);
+bool fill_form_mesh(char * p, struct form_home form);
 bool fill_form_modbus(char *p,struct form_home form);
 
 
