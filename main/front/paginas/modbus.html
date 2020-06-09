@@ -28,9 +28,8 @@
                     <a href="aboutUs.html">About Us</a>
                 </div> 
             </aside> 
-            <div class="FormMesh" >
-                   
-                    <label style="font-weight: bold;">MODBUS Configuration</label>
+            <div class="FormMesh" >                   
+                    <label class="header-form">MODBUS Configuration</label>
                     <form name="FormMesh" style="margin: 10%;">
                             <select id="tipo_med" class="tipo_medidor"name = "modoOutput" onchange="pulsos()">
                                     <option value = "rs485">Standard RS485 Output</option>
@@ -43,28 +42,27 @@
                      <div style="display: none;"id="med_pulse">
                             <br>
                             <br>
-                        <label >Conversion factor[imp/kWh]:</label><br>
+                        <label class="lc-form">Conversion factor[imp/kWh]:</label><br>
 						<input class="opcion"type="number" name="conversion" placeholder="imp/kWh"><br>
-						<label >Initial Energy [kWh]:</label><br>
+						<label class="lc-form">Initial Energy [kWh]:</label><br>
 						<input class="opcion"type="text" name="energia"pattern="[0-9]+(\.[0-9]{1,2})%?" placeholder="Initial kWh"><br>
-                        <label >Slave ID:</label><br>
+                        <label class="lc-form">Slave ID:</label><br>
 						<input class="opcion"type="number" name="slaveid" placeholder="Id for pulse meter"><br>
                     </div>   
 
                     <div style="display: none;"id="med_rs485">
                             <br>
                             <br>
-                        <label >Baud Rate:</label><br>
+                        <label class="lc-form">Baud Rate:</label><br>
                         <input class="opcion"type="number" name="baud_rate" placeholder="Baudios"><br>
                         
-
                     </div>
 
                         
                         <br><br><br>
 
-						<input class="opcion"type="submit" name="submit" value="Submit"style="margin:1rem;">
-                        <input class="opcion"type="button" name="enter" value="Cancel"style="margin:1rem;">
+						<input class="form-button"type="button" name="submit" value="Submit"style="margin:1rem;">
+                        <input class="form-button"type="button" name="enter" value="Cancel"style="margin:1rem;">
                         
                     </form>
                     <form name="Reset ESP">

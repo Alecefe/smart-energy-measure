@@ -20,6 +20,24 @@
 void ServidorHTTP();
 #endif
 
+struct form_wifiloc{
+	char ssid[20];
+	char password[20];
+};
+
+struct form_modbus{
+	char tipo[7];
+	uint64_t energia;
+	uint8_t slaveid;
+	uint16_t conversion;
+	uint32_t baud_rate;
+};
+
+struct form_login{
+	char user[21];
+	char password[21];
+};
+
 struct form_home{
 	char ssid[20];
 	char password[20];
@@ -33,6 +51,18 @@ struct form_home{
 	uint8_t slaveid;
 	uint16_t conversion;
 	uint32_t baud_rate;
+};
+
+struct form_mqtt{
+	bool advance;
+	char uri[50];
+	char ip[20];
+	uint16_t port;
+	char pubtopic[20];
+	bool type;
+	char user[20];
+	char password[20];
+	uint8_t app_layer;
 };
 
 TaskHandle_t http_socket;

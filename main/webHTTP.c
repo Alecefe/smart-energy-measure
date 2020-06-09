@@ -8,6 +8,8 @@ static const char *REST_TAG = "esp-rest";
 static const char *TAG = "REQUEST";
 const char valid_user[]="usuario";
 const char valid_pass[]="contrasena";
+struct form_home fweb_mesh_config;
+struct form_login fweb_login;
 
 #define REST_CHECK(a, str, goto_tag, ...)                                              \
     do                                                                                 \
@@ -25,7 +27,6 @@ const char valid_pass[]="contrasena";
 bool ahora = true;
 conversion_t conversion[4] = {{rs485,"rs485"},{pulsos,"pulsos"},{chino,"chino"},{enlace,"enlace"}};
 
-struct form_home fweb_mesh_config;
 
 typedef struct rest_server_context {
     char base_path[ESP_VFS_PATH_MAX + 1];
@@ -42,6 +43,8 @@ tipo_de_medidor str2enum (const char *str)
 }
 
 #define CHECK_FILE_EXTENSION(filename, ext) (strcasecmp(&filename[strlen(filename) - strlen(ext)], ext) == 0)
+
+/********************** LLENADO DE FORMULARIOS (RAM->FLASH // SET) *************************/
 
 void set_form_flash_mesh(struct form_home form){
 
@@ -120,6 +123,8 @@ void set_form_flash_modbus(struct form_home form){
 	}
 	nvs_close(ctrl_flash);
 }
+
+/********************** LLENADO DE FORMULARIOS (FLASH->RAM // GET) *************************/
 
 void get_form_flash_mesh(struct form_home *form){
 	size_t len;
@@ -329,6 +334,8 @@ void get_form_flash_mesh(struct form_home *form){
 	nvs_close(ctrl_prueba);
 }
 
+/********************** PARSE Y VALIDACION DE ENTRADAS (WEB->RAM) **************************/
+
 bool fill_form_mesh(char * p, struct form_home *form){
 
     cJSON *root = cJSON_Parse(p);
@@ -533,6 +540,9 @@ bool fill_form_modbus(char *p, struct form_home form){
 	return true;
 }
 
+
+/*********************** SOCKET HTTP *******************************************************/
+
 /* Set HTTP response content type according to file extension */
 static esp_err_t set_content_type_from_file(httpd_req_t *req, const char *filepath)
 {
@@ -614,6 +624,8 @@ static esp_err_t rest_common_get_handler(httpd_req_t *req)
     httpd_resp_send_chunk(req, NULL, 0);
     return ESP_OK;
 }
+
+/************************ MANEJADORES ******************************************************/
 
 static esp_err_t form_mesh_req_handler(httpd_req_t *req){/*Recepción de formulario de configuración mesh*/
 
