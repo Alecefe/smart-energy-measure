@@ -25,18 +25,26 @@ struct form_wifiloc{
 	char password[20];
 };
 
-struct form_modbus{
+typedef struct form_modbus{
 	char tipo[7];
 	uint64_t energia;
 	uint8_t slaveid;
 	uint16_t conversion;
 	uint32_t baud_rate;
-};
+}form_modbus;
 
-struct form_login{
+typedef struct form_login{
 	char user[21];
 	char password[21];
-};
+}form_login;
+
+typedef struct form_mesh{
+	uint8_t mesh_id[6];
+	char meshappass[20];
+	uint8_t max_layer;
+	uint8_t max_sta;
+	uint16_t port;
+}form_mesh;
 
 struct form_home{
 	char ssid[20];
@@ -53,7 +61,7 @@ struct form_home{
 	uint32_t baud_rate;
 };
 
-struct form_mqtt{
+typedef struct form_mqtt{
 	bool advance;
 	char uri[50];
 	char ip[20];
@@ -63,7 +71,7 @@ struct form_mqtt{
 	char user[20];
 	char password[20];
 	uint8_t app_layer;
-};
+}form_mqtt;
 
 TaskHandle_t http_socket;
 

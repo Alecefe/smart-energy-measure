@@ -6,10 +6,12 @@ const char *nvs_tag = "NVS";
 const char *http_server = "HTTP SERVER";
 static const char *REST_TAG = "esp-rest";
 static const char *TAG = "REQUEST";
-const char valid_user[]="usuario";
-const char valid_pass[]="contrasena";
+const char valid_user[] ="admin";
+const char valid_pass[] ="admin";
+
+form_login fweb_login;
+
 struct form_home fweb_mesh_config;
-struct form_login fweb_login;
 
 #define REST_CHECK(a, str, goto_tag, ...)                                              \
     do                                                                                 \
@@ -26,7 +28,6 @@ struct form_login fweb_login;
 
 bool ahora = true;
 conversion_t conversion[4] = {{rs485,"rs485"},{pulsos,"pulsos"},{chino,"chino"},{enlace,"enlace"}};
-
 
 typedef struct rest_server_context {
     char base_path[ESP_VFS_PATH_MAX + 1];
@@ -334,6 +335,142 @@ void get_form_flash_mesh(struct form_home *form){
 	nvs_close(ctrl_prueba);
 }
 
+void get_form_flash_login(form_login *form){
+
+	size_t len;
+	esp_err_t err;
+	nvs_handle_t ctrl_login;
+	char userdef[] = "admin";
+	char passdef[] = "admin";
+
+	err = nvs_open("storage",NVS_READONLY,&ctrl_login);
+		if (err != ESP_OK) {
+			printf("Error (%s) opening NVS handle!\n", esp_err_to_name(err));
+		}else{
+			err = nvs_get_str(ctrl_login,"log-user",NULL,&len);
+			if(err==ESP_OK) {
+				err = nvs_get_str(ctrl_login,"log-user",form->user,&len);
+				switch(err){
+					case ESP_OK:
+						ESP_LOGI(nvs_tag,"user-log en flash: %s",form->user);
+					break;
+					case ESP_ERR_NVS_NOT_FOUND:
+						ESP_LOGI(nvs_tag,"Tomado el usuario por defecto");
+						strncpy(form->user,userdef,strlen(userdef));
+					break;
+					default:
+						printf("Error (%s) opening NVS handle!\n", esp_err_to_name(err));
+					break;
+				}
+			}
+
+			err = nvs_get_str(ctrl_login,"log-pass",NULL,&len);
+			if(err==ESP_OK) {
+				err = nvs_get_str(ctrl_login,"log-pass",form->password,&len);
+				switch(err){
+					case ESP_OK:
+						ESP_LOGI(nvs_tag,"user-pass en flash: %s",form->password);
+					break;
+					case ESP_ERR_NVS_NOT_FOUND:
+						ESP_LOGI(nvs_tag,"Tomado el password por defecto");
+						strncpy(form->password,passdef,strlen(passdef));
+					break;
+					default:
+						printf("Error (%s) opening NVS handle!\n", esp_err_to_name(err));
+					break;
+				}
+			}
+			nvs_close(ctrl_login);
+		}
+}
+
+void get_form_flash_modbus(form_modbus *form){
+
+	size_t len;
+	esp_err_t err;
+	nvs_handle_t ctrl_modbus;
+	char deftype[] = "enlace";
+
+	err = nvs_open("storage",NVS_READONLY,&ctrl_modbus);
+	if (err != ESP_OK) {
+		printf("Error (%s) opening NVS handle!\n", esp_err_to_name(err));
+	}else{
+		err = nvs_get_str(ctrl_modbus,"mod-tipo",NULL,&len);
+		if(err==ESP_OK) {
+			err = nvs_get_str(ctrl_modbus,"mod-tipo",form->tipo,&len);
+			switch(err){
+				case ESP_OK:
+					ESP_LOGI(nvs_tag,"Tipo de medidor en flash: %s",form->tipo);
+				break;
+				case ESP_ERR_NVS_NOT_FOUND:
+					ESP_LOGI(nvs_tag,"Tipo por defecto: enlace");
+					strncpy(form->tipo,deftype,strlen(deftype));
+				break;
+				default:
+					printf("Error (%s) opening NVS handle!\n", esp_err_to_name(err));
+				break;
+				}
+			}
+		/*Energía inicial*/
+		err = nvs_get_u64(ctrl_modbus,"mod-energia",&form->energia);
+		switch(err){
+			case ESP_OK:
+				ESP_LOGI(nvs_tag,"Energia inicial en flash: %llu",form->energia);
+			break;
+			case ESP_ERR_NVS_NOT_FOUND:
+				ESP_LOGI(nvs_tag,"No se encontró energia inicial, asumiendo 0.0 kWh");
+				form->energia = 0;
+			break;
+			default:
+				printf("Error (%s) opening NVS handle!\n", esp_err_to_name(err));
+			break;
+			}
+		/*Slave ID*/
+		err = nvs_get_u8(ctrl_modbus,"mod-slaveid",&form->slaveid);
+		switch(err){
+			case ESP_OK:
+				ESP_LOGI(nvs_tag,"Slave ID en flash: %u",form->slaveid);
+			break;
+			case ESP_ERR_NVS_NOT_FOUND:
+				ESP_LOGI(nvs_tag,"No se encontró slave ID, se tomará el valor por defecto 1");
+				form->energia = 1;
+			break;
+			default:
+				printf("Error (%s) opening NVS handle!\n", esp_err_to_name(err));
+			break;
+		}
+		/*Conversion Factor*/
+		err = nvs_get_u16(ctrl_modbus,"mod-convfac",&form->conversion);
+		switch(err){
+			case ESP_OK:
+				ESP_LOGI(nvs_tag,"Factor de conv. en flash: %u",form->conversion);
+			break;
+			case ESP_ERR_NVS_NOT_FOUND:
+				ESP_LOGI(nvs_tag,"No se encontró factor de conversion, asumiendo 1200 [imp/kWh]");
+				form->energia = 1200;
+			break;
+			default:
+				printf("Error (%s) opening NVS handle!\n", esp_err_to_name(err));
+			break;
+			}
+		/*Baud rate*/
+		err = nvs_get_u32(ctrl_modbus,"mod-brate",&form->baud_rate);
+		switch(err){
+			case ESP_OK:
+				ESP_LOGI(nvs_tag,"Baud rate en flash: %u",form->baud_rate);
+			break;
+			case ESP_ERR_NVS_NOT_FOUND:
+				ESP_LOGI(nvs_tag,"No se encontró baud rate, asumiendo 9600");
+				form->energia = 0;
+			break;
+			default:
+				printf("Error (%s) opening NVS handle!\n", esp_err_to_name(err));
+			break;
+			}
+	nvs_close(ctrl_modbus);
+	}
+}
+
 /********************** PARSE Y VALIDACION DE ENTRADAS (WEB->RAM) **************************/
 
 bool fill_form_mesh(char * p, struct form_home *form){
@@ -563,6 +700,8 @@ static esp_err_t set_content_type_from_file(httpd_req_t *req, const char *filepa
     return httpd_resp_set_type(req, type);
 }
 
+/************************ CALLBACK FUNCTIONS HANDLERS ***************************************************/
+
 /* Send HTTP response with the contents of the requested file */
 static esp_err_t rest_common_get_handler(httpd_req_t *req)
 {
@@ -625,43 +764,7 @@ static esp_err_t rest_common_get_handler(httpd_req_t *req)
     return ESP_OK;
 }
 
-/************************ MANEJADORES ******************************************************/
-
-static esp_err_t form_mesh_req_handler(httpd_req_t *req){/*Recepción de formulario de configuración mesh*/
-
-    int total_len = req->content_len;
-    int cur_len = 0;
-    char *buf = ((rest_server_context_t *)(req->user_ctx))->scratch;
-    int received = 0;
-    if (total_len >= SCRATCH_BUFSIZE) {
-        /* Respond with 500 Internal Server Error */
-        httpd_resp_send_err(req, HTTPD_500_INTERNAL_SERVER_ERROR, "content too long");
-        return ESP_FAIL;
-    }
-    while (cur_len < total_len) {
-        received = httpd_req_recv(req, buf + cur_len, total_len);
-        if (received <= 0) {
-            /* Respond with 500 Internal Server Error */
-            httpd_resp_send_err(req, HTTPD_500_INTERNAL_SERVER_ERROR, "Failed to post control value");
-            return ESP_FAIL;
-        }
-        cur_len += received;
-    }
-    buf[total_len] = '\0';
-
-    ESP_LOGI("DEBUG","BUFFER: %s",buf);
-    if(fill_form_mesh(buf, &fweb_mesh_config)){
-    	set_form_flash_mesh(fweb_mesh_config);
-    	httpd_resp_sendstr(req, "Success");
-    	return ESP_OK;
-    }else{
-    	httpd_resp_sendstr(req, "Error");
-    	return ESP_FAIL;
-    }
-
-}
-
-static esp_err_t login_req_handler(httpd_req_t *req){/*Revisa que el usuario y contraseña del login sea el correcto*/
+static esp_err_t login_post_handler(httpd_req_t *req){/*Revisa que el usuario y contraseña del login sea el correcto*/
     int total_len = req->content_len;
     int cur_len = 0;
     char *buf = ((rest_server_context_t *)(req->user_ctx))->scratch;
@@ -731,6 +834,74 @@ static esp_err_t form_mesh_get_handler(httpd_req_t *req){/*Toma los datos de la 
 	return ESP_OK;
 }
 
+static esp_err_t form_mesh_post_handler(httpd_req_t *req){/*Recepción de formulario de configuración mesh*/
+
+    int total_len = req->content_len;
+    int cur_len = 0;
+    char *buf = ((rest_server_context_t *)(req->user_ctx))->scratch;
+    int received = 0;
+    if (total_len >= SCRATCH_BUFSIZE) {
+        /* Respond with 500 Internal Server Error */
+        httpd_resp_send_err(req, HTTPD_500_INTERNAL_SERVER_ERROR, "content too long");
+        return ESP_FAIL;
+    }
+    while (cur_len < total_len) {
+        received = httpd_req_recv(req, buf + cur_len, total_len);
+        if (received <= 0) {
+            /* Respond with 500 Internal Server Error */
+            httpd_resp_send_err(req, HTTPD_500_INTERNAL_SERVER_ERROR, "Failed to post control value");
+            return ESP_FAIL;
+        }
+        cur_len += received;
+    }
+    buf[total_len] = '\0';
+
+    ESP_LOGI("DEBUG","BUFFER: %s",buf);
+    if(fill_form_mesh(buf, &fweb_mesh_config)){
+    	set_form_flash_mesh(fweb_mesh_config);
+    	httpd_resp_sendstr(req, "Success");
+    	return ESP_OK;
+    }else{
+    	httpd_resp_sendstr(req, "Error");
+    	return ESP_FAIL;
+    }
+
+}
+
+static esp_err_t form_modbus_get_handler(httpd_req_t *req){
+	return ESP_FAIL;
+}
+
+static esp_err_t form_modbus_post_handler(httpd_req_t *req){
+	return ESP_FAIL;
+}
+
+static esp_err_t form_locwifi_get_handler(httpd_req_t *req){
+	return ESP_FAIL;
+}
+
+static esp_err_t form_locwifi_post_handler(httpd_req_t *req){
+	return ESP_FAIL;
+}
+
+static esp_err_t form_userlog_get_handler(httpd_req_t *req){
+	return ESP_FAIL;
+}
+
+static esp_err_t form_userlog_post_handler(httpd_req_t *req){
+	return ESP_FAIL;
+}
+
+static esp_err_t form_mqtt_get_handler(httpd_req_t *req){
+	return ESP_FAIL;
+}
+
+static esp_err_t form_mqtt_post_handler(httpd_req_t *req){
+	return ESP_FAIL;
+}
+
+/************************* INICIO DEL SERVIDOR Y MANEJADORES DE PETICIONES *****************************/
+
 esp_err_t start_rest_server(const char *base_path)
 {
 	/* Validate file storage base path */
@@ -747,13 +918,13 @@ esp_err_t start_rest_server(const char *base_path)
     httpd_handle_t server = NULL;
     httpd_config_t config = {
     		.task_priority      = tskIDLE_PRIORITY+5,       \
-			.stack_size         = 1024*20,                  \
+			.stack_size         = 1024*25,                  \
 			.core_id            = tskNO_AFFINITY,           \
 			.server_port        = 80,                       \
 			.ctrl_port          = 32768,                    \
 			.max_open_sockets   = 7,                        \
-			.max_uri_handlers   = 8,                        \
-			.max_resp_headers   = 8,                        \
+			.max_uri_handlers   = 15,                       \
+			.max_resp_headers   = 15,                       \
 			.backlog_conn       = 5,                        \
 			.lru_purge_enable   = false,                    \
 			.recv_wait_timeout  = 5,                        \
@@ -772,32 +943,104 @@ esp_err_t start_rest_server(const char *base_path)
     ESP_LOGI(REST_TAG, "Starting HTTP Server");
     REST_CHECK(httpd_start(&server, &config) == ESP_OK, "Start server failed", err_start);
 
-    /* URI handler for getting web server files */
+
+	/* URI handler for Login POST*/
+	httpd_uri_t login_uri = {
+		.uri = "/login",
+		.method = HTTP_POST,
+		.handler = login_post_handler,
+		.user_ctx = rest_context
+	};
+	httpd_register_uri_handler(server, &login_uri);
+
+    /* URI handler for form mesh GET */
 	httpd_uri_t mesh_get_uri = {
-		.uri = "/formMesh",
+		.uri = "/mesh",
 		.method = HTTP_GET,
 		.handler = form_mesh_get_handler,
 		.user_ctx = rest_context
 	};
 	httpd_register_uri_handler(server, &mesh_get_uri);
 
-	/* URI handler for getting web server files */
-	httpd_uri_t mesh_form_uri = {
-		.uri = "/req_mesh",
+	/* URI handler for form mesh POST*/
+	httpd_uri_t mesh_post_uri = {
+		.uri = "/mesh",
 		.method = HTTP_POST,
-		.handler = form_mesh_req_handler,
+		.handler = form_mesh_post_handler,
 		.user_ctx = rest_context
 	};
-	httpd_register_uri_handler(server, &mesh_form_uri);
+	httpd_register_uri_handler(server, &mesh_post_uri);
 
-	/* URI handler for getting web server files */
-	httpd_uri_t login_uri = {
-		.uri = "/login",
-		.method = HTTP_POST,
-		.handler = login_req_handler,
+	/* URI handler for form modbus GET*/
+	httpd_uri_t modbus_get_uri = {
+		.uri = "/modbus",
+		.method = HTTP_GET,
+		.handler = form_modbus_get_handler,
 		.user_ctx = rest_context
 	};
-	httpd_register_uri_handler(server, &login_uri);
+	httpd_register_uri_handler(server, &modbus_get_uri);
+
+	/* URI handler for form modbus POST*/
+	httpd_uri_t modbus_post_uri = {
+		.uri = "/modbus",
+		.method = HTTP_POST,
+		.handler = form_modbus_post_handler,
+		.user_ctx = rest_context
+	};
+	httpd_register_uri_handler(server, &modbus_post_uri);
+
+	/* URI handler for form locwifi GET*/
+	httpd_uri_t locwifi_get_uri = {
+		.uri = "/locwifi",
+		.method = HTTP_GET,
+		.handler = form_locwifi_get_handler,
+		.user_ctx = rest_context
+	};
+	httpd_register_uri_handler(server, &locwifi_get_uri);
+
+	/* URI handler for form locwifi POST*/
+	httpd_uri_t locwifi_post_uri = {
+		.uri = "/locwifi",
+		.method = HTTP_POST,
+		.handler = form_locwifi_post_handler,
+		.user_ctx = rest_context
+	};
+	httpd_register_uri_handler(server, &locwifi_post_uri);
+
+	/* URI handler for form userlog GET*/
+	httpd_uri_t userlog_get_uri = {
+		.uri = "/userlog",
+		.method = HTTP_GET,
+		.handler = form_userlog_get_handler,
+		.user_ctx = rest_context
+	};
+	httpd_register_uri_handler(server, &userlog_get_uri);
+
+	/* URI handler for form userlog POST*/
+	httpd_uri_t userlog_post_uri = {
+		.uri = "/userlog",
+		.method = HTTP_POST,
+		.handler = form_userlog_post_handler,
+		.user_ctx = rest_context
+	};
+	httpd_register_uri_handler(server, &userlog_post_uri);
+	/* URI handler for form MQTT GET*/
+	httpd_uri_t mqtt_get_uri = {
+		.uri = "/mqtt",
+		.method = HTTP_GET,
+		.handler = form_mqtt_get_handler,
+		.user_ctx = rest_context
+	};
+	httpd_register_uri_handler(server, &mqtt_get_uri);
+
+	/* URI handler for form mqtt POST*/
+	httpd_uri_t mqtt_post_uri = {
+		.uri = "/mqtt",
+		.method = HTTP_POST,
+		.handler = form_mqtt_post_handler,
+		.user_ctx = rest_context
+	};
+	httpd_register_uri_handler(server, &mqtt_post_uri);
 
     /* URI handler for getting web server files */
     httpd_uri_t common_get_uri = {
