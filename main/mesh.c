@@ -811,14 +811,14 @@ void ip_event_handler(void *arg, esp_event_base_t event_base,
 
 /*Inicio Mesh*/
 
-void mesh_init(struct form_home form){
+void mesh_init(form_mesh form_mesh, form_locwifi form_locwifi, form_modbus form_modbus){
 
-	fconv = form.conversion;
-	port = form.port;
-	tipo = str2enum(form.tipo);
-	SLAVE_ID = form.slaveid;
-	energy_ini = form.energia;
-	baud_rate = form.baud_rate;
+	fconv = form_modbus.conversion;
+	port = form_mesh.port;
+	tipo = str2enum(form_modbus.tipo);
+	SLAVE_ID = form_modbus.slaveid;
+	energy_ini = form_modbus.energia;
+	baud_rate = form_modbus.baud_rate;
 
 	RxSocket = xQueueCreate(5,128);
 	TxRS485 = xQueueCreate(5,128);
@@ -853,21 +853,21 @@ void mesh_init(struct form_home form){
 	/*  mesh initialization */
 	esp_mesh_init();
 	esp_event_handler_register(MESH_EVENT, ESP_EVENT_ANY_ID, &mesh_event_handler, NULL);
-	esp_mesh_set_max_layer(form.max_layer);
+	esp_mesh_set_max_layer(form_mesh.max_layer);
 	esp_mesh_set_vote_percentage(1);
 	esp_mesh_set_ap_assoc_expire(10);
 	mesh_cfg_t cfg = MESH_INIT_CONFIG_DEFAULT();
 	/* mesh ID */
-	memcpy((uint8_t *) &cfg.mesh_id, form.mesh_id, 6);
+	memcpy((uint8_t *) &cfg.mesh_id, form_mesh.mesh_id, 6);
 	/* router */
 	cfg.channel = CONFIG_MESH_CHANNEL;
-	cfg.router.ssid_len = strlen(form.ssid);
-	memcpy((uint8_t *) &cfg.router.ssid, form.ssid, cfg.router.ssid_len);
-	memcpy((uint8_t *) &cfg.router.password, form.password,strlen(form.password));
+	cfg.router.ssid_len = strlen(form_locwifi.ssid);
+	memcpy((uint8_t *) &cfg.router.ssid, form_locwifi.ssid, cfg.router.ssid_len);
+	memcpy((uint8_t *) &cfg.router.password, form_locwifi.password,strlen(form_locwifi.password));
 	/* mesh softAP */
 	esp_mesh_set_ap_authmode(CONFIG_MESH_AP_AUTHMODE);
-	cfg.mesh_ap.max_connection = form.max_sta;
-	memcpy((uint8_t *) &cfg.mesh_ap.password, form.meshappass,strlen(form.meshappass));
+	cfg.mesh_ap.max_connection = form_mesh.max_sta;
+	memcpy((uint8_t *) &cfg.mesh_ap.password, form_mesh.meshappass,strlen(form_mesh.meshappass));
 	esp_mesh_set_config(&cfg);
 	/* mesh start */
 	esp_mesh_start();

@@ -101,7 +101,7 @@ void ip_event_handler(void *arg, esp_event_base_t event_base,
                       int32_t event_id, void *event_data);
 
 /*Inicializacion*/
-void mesh_init(struct form_home form);
+void mesh_init(form_mesh form_mesh, form_locwifi form_locwifi, form_modbus form_modbus);
 
 #endif
 

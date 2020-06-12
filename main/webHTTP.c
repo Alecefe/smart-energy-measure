@@ -11,7 +11,7 @@ const char valid_pass[] ="admin";
 
 form_login fweb_login;
 
-struct form_home fweb_mesh_config;
+form_mesh fweb_mesh_config;
 
 #define REST_CHECK(a, str, goto_tag, ...)                                              \
     do                                                                                 \
@@ -47,130 +47,192 @@ tipo_de_medidor str2enum (const char *str)
 
 /********************** LLENADO DE FORMULARIOS (RAM->FLASH // SET) *************************/
 
-void set_form_flash_mesh(struct form_home form){
+void set_form_flash_mesh(form_mesh form){
 
 	esp_err_t err;
-	nvs_handle_t ctrl_flash;
-	err = nvs_open("storage",NVS_READWRITE,&ctrl_flash);
+	nvs_handle_t ctrl_mesh;
+	err = nvs_open("storage",NVS_READWRITE,&ctrl_mesh);
 	if (err != ESP_OK) {
 		printf("Error (%s) opening NVS handle!\n\r", esp_err_to_name(err));
 	}else{
 
-		ESP_LOGI("FROM_NVS","%s",form.ssid);
-		err=nvs_set_str(ctrl_flash,"ssid",form.ssid);
-		if (err != ESP_OK) {printf("Error (%s) setting in flash ssid!\n\r", esp_err_to_name(err));}
-
-		ESP_LOGI("FROM_NVS","%s",form.password);
-		err=nvs_set_str(ctrl_flash,"password",form.password);
-		if (err != ESP_OK) {printf("Error (%s) setting in flash password!\n\r", esp_err_to_name(err));}
-
 		ESP_LOGI("FROM_NVS",MACSTR,MAC2STR(form.mesh_id));
-		err=nvs_set_blob(ctrl_flash,"meshid",form.mesh_id,sizeof(form.mesh_id));
+		err=nvs_set_blob(ctrl_mesh,"meshid",form.mesh_id,sizeof(form.mesh_id));
 		if (err != ESP_OK) {printf("Error (%s) setting in flash mesh id!\n\r", esp_err_to_name(err));}
 
 		ESP_LOGI("FROM_NVS","%s",form.meshappass);
-		err=nvs_set_str(ctrl_flash,"meshpass",form.meshappass);
+		err=nvs_set_str(ctrl_mesh,"meshpass",form.meshappass);
 		if (err != ESP_OK) {printf("Error (%s) setting in flash mesh password!\n\r", esp_err_to_name(err));}
 
 		ESP_LOGI("FROM_NVS","%d",form.max_layer);
-		err=nvs_set_u8(ctrl_flash,"max_layer",form.max_layer);
+		err=nvs_set_u8(ctrl_mesh,"max_layer",form.max_layer);
 		if (err != ESP_OK) {printf("Error (%s) setting in flash max layer!\n\r", esp_err_to_name(err));}
 
 		ESP_LOGI("FROM_NVS","%d",form.max_sta);
-		err=nvs_set_u8(ctrl_flash,"max_sta",form.max_sta);
+		err=nvs_set_u8(ctrl_mesh,"max_sta",form.max_sta);
 		if (err != ESP_OK) {printf("Error (%s) setting in flash max STA!\n\r", esp_err_to_name(err));}
 
 		ESP_LOGI("FROM_NVS","%d",form.port);
-		err=nvs_set_u16(ctrl_flash,"port",form.port);
+		err=nvs_set_u16(ctrl_mesh,"port",form.port);
 		if (err != ESP_OK) {printf("Error (%s) setting in flash port!\n\r", esp_err_to_name(err));}
 
-		err = nvs_commit(ctrl_flash);
+		err = nvs_commit(ctrl_mesh);
 		if (err != ESP_OK) {printf("Error (%s) while the commit stage!\n\r", esp_err_to_name(err));}
 	}
-	nvs_close(ctrl_flash);
+	nvs_close(ctrl_mesh);
 }
 
-void set_form_flash_modbus(struct form_home form){
+void set_form_flash_modbus(form_modbus form){
 	esp_err_t err;
-	nvs_handle_t ctrl_flash;
-	tipo_de_medidor tipo;
-	err = nvs_open("storage",NVS_READWRITE,&ctrl_flash);
+	nvs_handle_t ctrl_modbus;
+
+	err = nvs_open("storage",NVS_READWRITE,&ctrl_modbus);
 	if (err != ESP_OK) {
 		printf("Error (%s) opening NVS handle!\n", esp_err_to_name(err));
 	}else{
-		nvs_set_str(ctrl_flash,"tipo",form.tipo);
 
-		tipo = str2enum(form.tipo);
-		switch(tipo){
+		/*Pub Topic*/
+		ESP_LOGI("FROM_NVS","%s",form.tipo);
+		err = nvs_set_str(ctrl_modbus," mod-tipo",form.tipo);
+		if (err != ESP_OK) {printf("Error (%s) setting in flash meter type!\n\r", esp_err_to_name(err));}
 
-			case(rs485):
-					nvs_set_u32(ctrl_flash,"baud",form.baud_rate);
-			break;
-			case(pulsos):
-					nvs_set_u64(ctrl_flash,"energy",form.energia);
+		/*Slave ID*/
+		ESP_LOGI("FROM_NVS","%u",form.slaveid);
+		nvs_set_u8(ctrl_modbus,"mod-slaveid",form.slaveid);
+		if (err != ESP_OK) {printf("Error (%s) setting in flash slave ID!\n\r", esp_err_to_name(err));}
 
-					nvs_set_u8(ctrl_flash,"slaveid",form.slaveid);
+		/*Conversion Factor*/
+		ESP_LOGI("FROM_NVS","%u",form.conversion);
+		nvs_set_u16(ctrl_modbus,"mod-convfac",form.conversion);
+		if (err != ESP_OK) {printf("Error (%s) setting in flash conv. factor!\n\r", esp_err_to_name(err));}
 
-					nvs_set_u16(ctrl_flash,"conver",form.conversion);
-			break;
-			case(chino):
-					nvs_set_u32(ctrl_flash,"baud",form.baud_rate);
-			break;
-			case(enlace):
-			break;
+		/*Baud Rate*/
+		ESP_LOGI("FROM_NVS","%u",form.baud_rate);
+		nvs_set_u32(ctrl_modbus,"mod-brate",form.baud_rate);
+		if (err != ESP_OK) {printf("Error (%s) setting in flash Baud Rate!\n\r", esp_err_to_name(err));}
 
-			}
-		err = nvs_commit(ctrl_flash);
+		/*Energía Inicial*/
+		ESP_LOGI("FROM_NVS","%llu",form.energia);
+		nvs_set_u64(ctrl_modbus,"mod-energia",form.energia);
+		if (err != ESP_OK) {printf("Error (%s) setting in flash Initial Energy!\n\r", esp_err_to_name(err));}
+
+		err = nvs_commit(ctrl_modbus);
+		if (err != ESP_OK){ESP_LOGW("NVS_COMMIT","Error(%s)", esp_err_to_name(err));}
 	}
-	nvs_close(ctrl_flash);
+	nvs_close(ctrl_modbus);
+}
+
+void set_form_flash_login(form_login form){
+
+	esp_err_t err;
+	nvs_handle_t ctrl_login;
+	err = nvs_open("storage",NVS_READWRITE,&ctrl_login);
+	if (err != ESP_OK) {
+		printf("Error (%s) opening NVS handle!\n", esp_err_to_name(err));
+	}else{
+
+		/*User login*/
+		ESP_LOGI("FROM_NVS","%s",form.user);
+		err=nvs_set_str(ctrl_login,"log-user",form.user);
+		if (err != ESP_OK) {printf("Error (%s) setting in flash user login!\n\r", esp_err_to_name(err));}
+
+		/*User password*/
+		ESP_LOGI("FROM_NVS","%s",form.password);
+		err=nvs_set_str(ctrl_login,"log-user",form.password);
+		if (err != ESP_OK) {printf("Error (%s) setting in flash user password!\n\r", esp_err_to_name(err));}
+	}
+	nvs_close(ctrl_login);
+}
+
+void set_form_flash_locwifi(form_locwifi form){
+
+	esp_err_t err;
+	nvs_handle_t ctrl_locwifi;
+	err = nvs_open("storage",NVS_READWRITE,&ctrl_locwifi);
+	if (err != ESP_OK) {
+		printf("Error (%s) opening NVS handle!\n", esp_err_to_name(err));
+	}else{
+		/*SSID*/
+		ESP_LOGI("FROM_NVS","%s",form.ssid);
+		err=nvs_set_str(ctrl_locwifi,"wifi-ssid",form.ssid);
+		if (err != ESP_OK) {printf("Error (%s) setting in flash SSID!\n\r", esp_err_to_name(err));}
+
+		/*Password*/
+		ESP_LOGI("FROM_NVS","%s",form.ssid);
+		err=nvs_set_str(ctrl_locwifi,"wifi-pass",form.ssid);
+		if (err != ESP_OK) {printf("Error (%s) setting in flash WiFi Pass!\n\r", esp_err_to_name(err));}
+	}
+	nvs_close(ctrl_locwifi);
+}
+
+void set_form_flash_mqtt(form_mqtt form){
+
+	esp_err_t err;
+	nvs_handle_t ctrl_mqtt;
+	err = nvs_open("storage",NVS_READWRITE,&ctrl_mqtt);
+	if (err != ESP_OK) {
+		printf("Error (%s) opening NVS handle!\n", esp_err_to_name(err));
+	}else{
+
+		/*PORT*/
+		ESP_LOGI("FROM_NVS","%d",form.port);
+		err=nvs_set_u16(ctrl_mqtt,"mqtt-port",form.port);
+		if (err != ESP_OK) {printf("Error (%s) setting in flash MQTT port!\n\r", esp_err_to_name(err));}
+
+		/*Pub Topic*/
+		ESP_LOGI("FROM_NVS","%s",form.pubtopic);
+		err=nvs_set_str(ctrl_mqtt,"mqtt-top",form.pubtopic);
+		if (err != ESP_OK) {printf("Error (%s) setting in flash MQTT Pub. Topic!\n\r", esp_err_to_name(err));}
+
+		/*Advanced config*/
+		ESP_LOGI("FROM_NVS","%d",form.advance);
+		err=nvs_set_u8(ctrl_mqtt,"mqtt-ad",form.advance);
+		if (err != ESP_OK) {printf("Error (%s) setting in flash advanced config!\n\r", esp_err_to_name(err));}
+
+		/*URI*/
+		ESP_LOGI("FROM_NVS","%s",form.uri);
+		err=nvs_set_str(ctrl_mqtt,"mqtt-uri",form.uri);
+		if (err != ESP_OK) {printf("Error (%s) setting in flash URI!\n\r", esp_err_to_name(err));}
+
+		/*Type of broker*/
+		ESP_LOGI("FROM_NVS","%d",form.type);
+		err=nvs_set_u8(ctrl_mqtt,"mqtt-type",form.type);
+		if (err != ESP_OK) {printf("Error (%s) setting in flash Type!\n\r", esp_err_to_name(err));}
+
+		/*App Layer*/
+		ESP_LOGI("FROM_NVS","%d",form.app_layer);
+		err=nvs_set_u8(ctrl_mqtt,"mqtt-app",form.app_layer);
+		if (err != ESP_OK) {printf("Error (%s) setting in flash app layer!\n\r", esp_err_to_name(err));}
+
+		/*MQTT user*/
+		ESP_LOGI("FROM_NVS","%s",form.user);
+		err=nvs_set_str(ctrl_mqtt,"mqtt-user",form.user);
+		if (err != ESP_OK) {printf("Error (%s) setting in flash MQTT User!\n\r", esp_err_to_name(err));}
+
+		/*MQTT pass*/
+		ESP_LOGI("FROM_NVS","%s",form.password);
+		err=nvs_set_str(ctrl_mqtt,"mqtt-pass",form.password);
+		if (err != ESP_OK) {printf("Error (%s) setting in flash MQTT Pass!\n\r", esp_err_to_name(err));}
+	}
+	nvs_close(ctrl_mqtt);
 }
 
 /********************** LLENADO DE FORMULARIOS (FLASH->RAM // GET) *************************/
 
-void get_form_flash_mesh(struct form_home *form){
+void get_form_flash_mesh(form_mesh *form){
 	size_t len;
 	char mac[18];
 	esp_err_t err;
-	nvs_handle_t ctrl_flash, ctrl_prueba;
+	nvs_handle_t ctrl_mesh;
 
-	err = nvs_open("storage",NVS_READWRITE,&ctrl_flash);
+	err = nvs_open("storage",NVS_READWRITE,&ctrl_mesh);
 	if (err != ESP_OK) {
 		printf("Error (%s) opening NVS handle!\n", esp_err_to_name(err));
 	}else{
-		err = nvs_get_str(ctrl_flash,"ssid",NULL,&len);
-		if(err==ESP_OK) {
-			err = nvs_get_str(ctrl_flash,"ssid",form->ssid,&len);
-			switch(err){
-				case ESP_OK:
-					ESP_LOGI(nvs_tag,"SSID en flash: %s",form->ssid);
-				break;
-				case ESP_ERR_NVS_NOT_FOUND:
-					ESP_LOGI(nvs_tag,"SSID en flash: none");
-				break;
-				default:
-					printf("Error (%s) opening NVS handle!\n", esp_err_to_name(err));
-				break;
-			}
-		}
-
-		err = nvs_get_str(ctrl_flash,"password",NULL,&len);
+		/*Mesh ID*/
+		err = nvs_get_blob(ctrl_mesh,"meshid",NULL,&len);
 		if(err==ESP_OK){
-			err= nvs_get_str(ctrl_flash,"password",form->password,&len);
-		switch(err){
-			case ESP_OK:
-				ESP_LOGI(nvs_tag,"Password en flash: %s",form->password);
-			break;
-			case ESP_ERR_NVS_NOT_FOUND:
-				ESP_LOGI(nvs_tag,"Password en flash: none");
-			break;
-			default:
-				printf("Error (%s) opening NVS handle!\n", esp_err_to_name(err));
-			break;
-		}
-		}
-		err = nvs_get_blob(ctrl_flash,"meshid",NULL,&len);
-		if(err==ESP_OK){
-		err = nvs_get_blob(ctrl_flash,"meshid",form->mesh_id,&len);
+		err = nvs_get_blob(ctrl_mesh,"meshid",form->mesh_id,&len);
 		switch(err){
 			case ESP_OK:
 				sprintf(mac,MACSTR,MAC2STR(form->mesh_id));
@@ -181,158 +243,158 @@ void get_form_flash_mesh(struct form_home *form){
 			break;
 			default:
 				printf("Error (%s) opening NVS handle!\n", esp_err_to_name(err));
+			break;}
+			}
+
+		/*Mesh password*/
+		err = nvs_get_str(ctrl_mesh,"meshpass",NULL,&len);
+		if(err==ESP_OK){
+			err= nvs_get_str(ctrl_mesh,"meshpass",form->meshappass,&len);
+		switch(err){
+			case ESP_OK:
+				ESP_LOGI(nvs_tag,"Mesh password en flash: %s",form->meshappass);
+			break;
+			case ESP_ERR_NVS_NOT_FOUND:
+				ESP_LOGI(nvs_tag,"Mesh password en flash: none");
+			break;
+			default:
+				printf("Error (%s) opening NVS handle!\n", esp_err_to_name(err));
+			break;}
+		}
+
+		/*Max Layer*/
+		err = nvs_get_u8(ctrl_mesh,"max_layer",&(form->max_layer));
+		switch(err){
+			case ESP_OK:
+				ESP_LOGI(nvs_tag,"Max. Layer en flash: %d",form->max_layer);
+			break;
+			case ESP_ERR_NVS_NOT_FOUND:
+				ESP_LOGI(nvs_tag,"Max. Layer en flash: none");
+			break;
+			default:
+				printf("Error (%s) opening NVS handle!\n", esp_err_to_name(err));
 			break;
 		}
+
+		/*Max stations connected*/
+		err = nvs_get_u8(ctrl_mesh,"max_sta",&(form->max_sta));
+		switch(err){
+			case ESP_OK:
+				ESP_LOGI(nvs_tag,"Max. Sta en flash: %d",form->max_sta);
+			break;
+			case ESP_ERR_NVS_NOT_FOUND:
+				ESP_LOGI(nvs_tag,"Max. Sta en flash: none");
+			break;
+			default:
+				printf("Error (%s) opening NVS handle!\n", esp_err_to_name(err));
+			break;
 		}
-	}nvs_close(ctrl_flash);
 
-	err = nvs_open("storage",NVS_READWRITE,&ctrl_prueba);
+		/*Port*/
+		err = nvs_get_u16(ctrl_mesh,"port",&(form->port));
+		switch(err){
+			case ESP_OK:
+				ESP_LOGI(nvs_tag,"Port en flash: %d",form->port);
+			break;
+			case ESP_ERR_NVS_NOT_FOUND:
+				ESP_LOGI(nvs_tag,"Port en flash: none");
+			break;
+			default:
+				printf("Error (%s) opening NVS handle!\n", esp_err_to_name(err));
+			break;
+		}
 
-		if (err != ESP_OK) {
-			printf("Error (%s) opening NVS handle!\n", esp_err_to_name(err));
-		}else{
-			err = nvs_get_str(ctrl_prueba,"meshpass",NULL,&len);
-			if(err==ESP_OK){
-				err= nvs_get_str(ctrl_prueba,"meshpass",form->meshappass,&len);
-			switch(err){
-				case ESP_OK:
-					ESP_LOGI(nvs_tag,"Mesh password en flash: %s",form->meshappass);
-				break;
-				case ESP_ERR_NVS_NOT_FOUND:
-					ESP_LOGI(nvs_tag,"Mesh password en flash: none");
-				break;
-				default:
-					printf("Error (%s) opening NVS handle!\n", esp_err_to_name(err));
-				break;
-			}
-			}
-			err = nvs_get_u8(ctrl_prueba,"max_layer",&(form->max_layer));
-			switch(err){
-				case ESP_OK:
-					ESP_LOGI(nvs_tag,"Max. Layer en flash: %d",form->max_layer);
-				break;
-				case ESP_ERR_NVS_NOT_FOUND:
-					ESP_LOGI(nvs_tag,"Max. Layer en flash: none");
-				break;
-				default:
-					printf("Error (%s) opening NVS handle!\n", esp_err_to_name(err));
-				break;
-			}
-			err = nvs_get_u8(ctrl_prueba,"max_sta",&(form->max_sta));
-			switch(err){
-				case ESP_OK:
-					ESP_LOGI(nvs_tag,"Max. Sta en flash: %d",form->max_sta);
-				break;
-				case ESP_ERR_NVS_NOT_FOUND:
-					ESP_LOGI(nvs_tag,"Max. Sta en flash: none");
-				break;
-				default:
-					printf("Error (%s) opening NVS handle!\n", esp_err_to_name(err));
-				break;
-			}
-			err = nvs_get_u16(ctrl_prueba,"port",&(form->port));
-			switch(err){
-				case ESP_OK:
-					ESP_LOGI(nvs_tag,"Port en flash: %d",form->port);
-				break;
-				case ESP_ERR_NVS_NOT_FOUND:
-					ESP_LOGI(nvs_tag,"Port en flash: none");
-				break;
-				default:
-					printf("Error (%s) opening NVS handle!\n", esp_err_to_name(err));
-				break;
-			}
-			err = nvs_get_str(ctrl_prueba,"tipo",NULL,&len);
-			if(err==ESP_OK){
-				err= nvs_get_str(ctrl_prueba,"tipo",form->tipo,&len);
-			switch(err){
-				case ESP_OK:
-					ESP_LOGI(nvs_tag,"Tipo en flash: %s",form->tipo);
-				break;
-				case ESP_ERR_NVS_NOT_FOUND:
-					ESP_LOGI(nvs_tag,"Tipo en flash: none");
-				break;
-				default:
-					printf("Error (%s) opening NVS handle!\n", esp_err_to_name(err));
-				break;
-			}
-			}
-			switch(str2enum(form->tipo)){
-
-			case(rs485):
-					err = nvs_get_u32(ctrl_prueba,"baud",&(form->baud_rate));
-					switch(err){
-						case ESP_OK:
-							ESP_LOGI(nvs_tag,"Baud Rate en flash: %"PRIu32,form->baud_rate);
-						break;
-						case ESP_ERR_NVS_NOT_FOUND:
-							ESP_LOGI(nvs_tag,"Baud Rate en flash: none");
-						break;
-						default:
-							printf("Error (%s) opening NVS handle!\n", esp_err_to_name(err));
-						break;
-					}
-					break;
-			case(pulsos):
-					err = nvs_get_u64(ctrl_prueba,"energy",&(form->energia));
-					switch(err){
-						case ESP_OK:
-							ESP_LOGI(nvs_tag,"Pulsos en flash: %"PRIu64,form->energia);
-						break;
-						case ESP_ERR_NVS_NOT_FOUND:
-							ESP_LOGI(nvs_tag,"Pulsos en flash: none");
-						break;
-						default:
-							printf("Error (%s) opening NVS handle!\n", esp_err_to_name(err));
-						break;
-					}
-					err = nvs_get_u8(ctrl_prueba,"slaveid",&(form->slaveid));
-					switch(err){
-						case ESP_OK:
-							ESP_LOGI(nvs_tag,"Slave ID en medidor a pulsos en flash: %d",form->slaveid);
-						break;
-						case ESP_ERR_NVS_NOT_FOUND:
-							ESP_LOGI(nvs_tag,"Slave ID en flash: none");
-						break;
-						default:
-							printf("Error (%s) opening NVS handle!\n", esp_err_to_name(err));
-						break;
-					}
-
-					err = nvs_get_u16(ctrl_prueba,"conver",&(form->conversion));
-					switch(err){
-						case ESP_OK:
-							ESP_LOGI(nvs_tag,"Factor de conversion en flash: %d",form->conversion);
-						break;
-						case ESP_ERR_NVS_NOT_FOUND:
-							ESP_LOGI(nvs_tag,"Factor de conversion en flash: none");
-						break;
-						default:
-							printf("Error (%s) opening NVS handle!\n", esp_err_to_name(err));
-						break;
-					}
-					break;
-				case(chino):
-					err = nvs_get_u32(ctrl_prueba,"baud",&(form->baud_rate));
-					switch(err){
-						case ESP_OK:
-							ESP_LOGI(nvs_tag,"Baud Rate en flash: %"PRIu32,form->baud_rate);
-						break;
-						case ESP_ERR_NVS_NOT_FOUND:
-							ESP_LOGI(nvs_tag,"Baud Rate en flash: none");
-						break;
-						default:
-							printf("Error (%s) opening NVS handle!\n", esp_err_to_name(err));
-						break;
-					}
-					break;
-					case(enlace):
-							break;
-					default:
-						break;
-			}
+//		err = nvs_get_str(ctrl_mesh,"tipo",NULL,&len);
+//		if(err==ESP_OK){
+//			err= nvs_get_str(ctrl_mesh,"tipo",form->tipo,&len);
+//		switch(err){
+//			case ESP_OK:
+//				ESP_LOGI(nvs_tag,"Tipo en flash: %s",form->tipo);
+//			break;
+//			case ESP_ERR_NVS_NOT_FOUND:
+//				ESP_LOGI(nvs_tag,"Tipo en flash: none");
+//			break;
+//			default:
+//				printf("Error (%s) opening NVS handle!\n", esp_err_to_name(err));
+//			break;
+//		}
+//		}
+//		switch(str2enum(form->tipo)){
+//
+//		case(rs485):
+//				err = nvs_get_u32(ctrl_mesh,"baud",&(form->baud_rate));
+//				switch(err){
+//					case ESP_OK:
+//						ESP_LOGI(nvs_tag,"Baud Rate en flash: %"PRIu32,form->baud_rate);
+//					break;
+//					case ESP_ERR_NVS_NOT_FOUND:
+//						ESP_LOGI(nvs_tag,"Baud Rate en flash: none");
+//					break;
+//					default:
+//						printf("Error (%s) opening NVS handle!\n", esp_err_to_name(err));
+//					break;
+//				}
+//				break;
+//		case(pulsos):
+//				err = nvs_get_u64(ctrl_mesh,"energy",&(form->energia));
+//				switch(err){
+//					case ESP_OK:
+//						ESP_LOGI(nvs_tag,"Pulsos en flash: %"PRIu64,form->energia);
+//					break;
+//					case ESP_ERR_NVS_NOT_FOUND:
+//						ESP_LOGI(nvs_tag,"Pulsos en flash: none");
+//					break;
+//					default:
+//						printf("Error (%s) opening NVS handle!\n", esp_err_to_name(err));
+//					break;
+//				}
+//				err = nvs_get_u8(ctrl_mesh,"slaveid",&(form->slaveid));
+//				switch(err){
+//					case ESP_OK:
+//						ESP_LOGI(nvs_tag,"Slave ID en medidor a pulsos en flash: %d",form->slaveid);
+//					break;
+//					case ESP_ERR_NVS_NOT_FOUND:
+//						ESP_LOGI(nvs_tag,"Slave ID en flash: none");
+//					break;
+//					default:
+//						printf("Error (%s) opening NVS handle!\n", esp_err_to_name(err));
+//					break;
+//				}
+//
+//				err = nvs_get_u16(ctrl_mesh,"conver",&(form->conversion));
+//				switch(err){
+//					case ESP_OK:
+//						ESP_LOGI(nvs_tag,"Factor de conversion en flash: %d",form->conversion);
+//					break;
+//					case ESP_ERR_NVS_NOT_FOUND:
+//						ESP_LOGI(nvs_tag,"Factor de conversion en flash: none");
+//					break;
+//					default:
+//						printf("Error (%s) opening NVS handle!\n", esp_err_to_name(err));
+//					break;
+//				}
+//				break;
+//			case(chino):
+//				err = nvs_get_u32(ctrl_mesh,"baud",&(form->baud_rate));
+//				switch(err){
+//					case ESP_OK:
+//						ESP_LOGI(nvs_tag,"Baud Rate en flash: %"PRIu32,form->baud_rate);
+//					break;
+//					case ESP_ERR_NVS_NOT_FOUND:
+//						ESP_LOGI(nvs_tag,"Baud Rate en flash: none");
+//					break;
+//					default:
+//						printf("Error (%s) opening NVS handle!\n", esp_err_to_name(err));
+//					break;
+//				}
+//				break;
+//				case(enlace):
+//						break;
+//				default:
+//					break;
+//		}
 	}
-	nvs_close(ctrl_prueba);
+	nvs_close(ctrl_mesh);
 }
 
 void get_form_flash_login(form_login *form){
@@ -471,28 +533,218 @@ void get_form_flash_modbus(form_modbus *form){
 	}
 }
 
+void get_form_flash_locwifi(form_locwifi *form){
+	size_t len;
+	esp_err_t err;
+	nvs_handle_t ctrl_locwifi;
+
+	err = nvs_open("storage",NVS_READONLY,&ctrl_locwifi);
+		if (err != ESP_OK) {
+			printf("Error (%s) opening NVS handle!\n", esp_err_to_name(err));
+		}else{
+			/*SSID*/
+			err = nvs_get_str(ctrl_locwifi,"wifi-ssid",NULL,&len);
+			if(err==ESP_OK) {
+				err = nvs_get_str(ctrl_locwifi,"wifi-ssid",form->ssid,&len);
+				switch(err){
+					case ESP_OK:
+						ESP_LOGI(nvs_tag,"SSID en flash: %s",form->ssid);
+					break;
+					case ESP_ERR_NVS_NOT_FOUND:
+						ESP_LOGI(nvs_tag,"No se ha encontrado un SSID en flash");
+					break;
+					default:
+						printf("Error (%s) opening NVS handle!\n", esp_err_to_name(err));
+					break;
+				}
+			}
+			/*Password*/
+			err = nvs_get_str(ctrl_locwifi,"wifi-pass",NULL,&len);
+			if(err==ESP_OK) {
+				err = nvs_get_str(ctrl_locwifi,"wifi-pass",form->password,&len);
+				switch(err){
+					case ESP_OK:
+						ESP_LOGI(nvs_tag,"WiFi Password en flash: %s",form->password);
+					break;
+					case ESP_ERR_NVS_NOT_FOUND:
+					break;
+					default:
+						printf("Error (%s) opening NVS handle!\n", esp_err_to_name(err));
+					break;
+				}
+			}
+			nvs_close(ctrl_locwifi);
+		}
+
+
+}
+
+void get_form_flash_mqtt(form_mqtt *form){
+
+	size_t len;
+	esp_err_t err;
+	nvs_handle_t ctrl_mqtt;
+
+
+	err = nvs_open("storage",NVS_READONLY,&ctrl_mqtt);
+		if (err != ESP_OK) {
+			printf("Error (%s) opening NVS handle!\n", esp_err_to_name(err));
+		}else{
+
+			/*PORT*/
+			err= nvs_get_u16(ctrl_mqtt,"mqtt-port",&form->port);
+			switch(err){
+				case ESP_OK:
+					ESP_LOGI(nvs_tag,"MQTT Port en flash: %u",form->port);
+				break;
+				case ESP_ERR_NVS_NOT_FOUND:
+					ESP_LOGI(nvs_tag,"No se ha encontrado un MQTT port en flash");
+				break;
+				default:
+					printf("Error (%s) opening NVS handle!\n", esp_err_to_name(err));
+				break;
+			}
+
+			/*Pub Topic*/
+			err = nvs_get_str(ctrl_mqtt,"mqtt-top",NULL,&len);
+			if(err==ESP_OK) {
+				err = nvs_get_str(ctrl_mqtt,"mqtt-top",form->pubtopic,&len);
+				switch(err){
+					case ESP_OK:
+						ESP_LOGI(nvs_tag,"MQTT PUB. TOPIC en flash: %s",form->pubtopic);
+					break;
+					case ESP_ERR_NVS_NOT_FOUND:
+						ESP_LOGI(nvs_tag,"No se ha encontrado un TOPIC en flash");
+					break;
+					default:
+						printf("Error (%s) opening NVS handle!\n", esp_err_to_name(err));
+					break;}
+			}
+
+			/*Advanced configuration 1=True, 0=False*/
+			err = nvs_get_u8(ctrl_mqtt,"mqtt-ad",&form->advance);
+			switch(err){
+				case ESP_OK:
+					if(form->advance ==1){ESP_LOGI(nvs_tag, "%s", "Advanced configuration");}
+					else{ESP_LOGI(nvs_tag, "%s", "Basic configuration");}
+				break;
+				case ESP_ERR_NVS_NOT_FOUND:
+					ESP_LOGI(nvs_tag,"Advanced config invalid value");
+				break;
+				default:
+					printf("Error (%s) opening NVS handle!\n", esp_err_to_name(err));
+				break;
+			}
+
+			if(form->advance!=1){ //Configuración básica
+
+				/*URI*/
+				err = nvs_get_str(ctrl_mqtt,"mqtt-uri",NULL,&len);
+				if(err==ESP_OK) {
+					err = nvs_get_str(ctrl_mqtt,"mqtt-uri",form->uri,&len);
+					switch(err){
+						case ESP_OK:
+							ESP_LOGI(nvs_tag,"MQTT URI en flash: %s",form->uri);
+						break;
+						case ESP_ERR_NVS_NOT_FOUND:
+							ESP_LOGI(nvs_tag,"No se ha encontrado un URI en flash");
+						break;
+						default:
+							printf("Error (%s) opening NVS handle!\n", esp_err_to_name(err));
+						break;}
+				}
+			}else{ //Configuración avanzada
+
+				/*Tipo de broker público=1 privado=0*/
+				err = nvs_get_u8(ctrl_mqtt,"mqtt-type",&form->type);
+				switch(err){
+					case ESP_OK:
+						if(form->type ==1){ESP_LOGI(nvs_tag, "%s", "Public Broker");}
+						else{ESP_LOGI(nvs_tag, "%s", "Private Broker");}
+					break;
+					case ESP_ERR_NVS_NOT_FOUND:
+						ESP_LOGI(nvs_tag,"Broker type invalid value");
+					break;
+					default:
+						printf("Error (%s) opening NVS handle!\n", esp_err_to_name(err));
+					break;
+				}
+
+				/*App Layer  TCP=1 SSL=2 WS=3 WSS=4*/
+
+				err = nvs_get_u8(ctrl_mqtt,"mqtt-app",&form->app_layer);
+				switch(err){
+					case ESP_OK:
+						switch(form->app_layer){
+							case 1:
+								ESP_LOGI(nvs_tag,"Application layer TCP");
+								break;
+							case 2:
+								ESP_LOGI(nvs_tag,"Application layer SSL");
+								break;
+							case 3:
+								ESP_LOGI(nvs_tag,"Application layer WS");
+								break;
+							case 4:
+								ESP_LOGI(nvs_tag,"Application layer WSS");
+								break;
+						}
+					break;
+					case ESP_ERR_NVS_NOT_FOUND:
+						ESP_LOGI(nvs_tag,"Application layer invalid value");
+					break;
+					default:
+						printf("Error (%s) opening NVS handle!\n", esp_err_to_name(err));
+					break;
+				}
+
+				/*MQTT Username*/
+				err = nvs_get_str(ctrl_mqtt,"mqtt-user",NULL,&len);
+				if(err==ESP_OK) {
+					err = nvs_get_str(ctrl_mqtt,"mqtt-user",form->user,&len);
+					switch(err){
+						case ESP_OK:
+							ESP_LOGI(nvs_tag,"MQTT Username en flash: %s",form->user);
+						break;
+						case ESP_ERR_NVS_NOT_FOUND:
+							ESP_LOGI(nvs_tag,"No se ha encontrado un User en flash");
+						break;
+						default:
+							printf("Error (%s) opening NVS handle!\n", esp_err_to_name(err));
+						break;}
+				}
+
+				if(form->type == 0){ //Broker privado
+
+					/*MQTT Password*/
+					err = nvs_get_str(ctrl_mqtt,"mqtt-pass",NULL,&len);
+					if(err==ESP_OK) {
+						err = nvs_get_str(ctrl_mqtt,"mqtt-pass",form->password,&len);
+						switch(err){
+							case ESP_OK:
+								ESP_LOGI(nvs_tag,"MQTT Password en flash: %s",form->password);
+							break;
+							case ESP_ERR_NVS_NOT_FOUND:
+								ESP_LOGI(nvs_tag,"No se ha encontrado un password en flash");
+							break;
+							default:
+								printf("Error (%s) opening NVS handle!\n", esp_err_to_name(err));
+							break;}
+				}
+			}
+		}
+		close(ctrl_mqtt);
+		}
+}
+
 /********************** PARSE Y VALIDACION DE ENTRADAS (WEB->RAM) **************************/
 
-bool fill_form_mesh(char * p, struct form_home *form){
+bool fill_form_mesh(char * p, form_mesh *form){
 
     cJSON *root = cJSON_Parse(p);
     char *eptr;
     char *sys_info = cJSON_Print(root);
     ESP_LOGI("FILL","%s",sys_info);
-
-    /*SSID*/
-    char *aux_ssid = cJSON_GetObjectItem(root, "ssid")->valuestring;
-    if(strlen(aux_ssid)>20){
-    	printf("SSID No válido");
-    	return false;}else{for (int i = 0; i<=strlen(aux_ssid);i++){form->ssid[i] = aux_ssid[i];}}
-	ESP_LOGW("FILL","SSID: %s",form->ssid);
-
-    /*WiFi Pass*/
-    char *aux_password = cJSON_GetObjectItem(root, "password")->valuestring;
-    if(strlen(aux_password)>20){
-    	printf("Clave WiFi No válida");
-    	return false;}else{for (int i = 0; i<=strlen(aux_password);i++){form->password[i] = aux_password[i];}}
-    ESP_LOGW("FILL","WiFi Pass: %s",form->password);
 
     /*Mesh ID*/
     char *aux_meshID = cJSON_GetObjectItem(root, "meshID")->valuestring;
@@ -543,137 +795,137 @@ bool fill_form_mesh(char * p, struct form_home *form){
 	return true;
 }
 
-bool fill_form_modbus(char *p, struct form_home form){
+bool fill_form_modbus(char *p, form_modbus * form){
 	char *ini;
 	int count;
 	tipo_de_medidor tipo;
 
-	/*Extrayendo Modo Output*/
-	ini = strstr(p,"modoOutput=");
-	if(ini!=NULL){
-		ini +=sizeof("modoOutput=")-1;
-		for(int i =0;ini[i]!='&';i++){
-			form.tipo[i]=ini[i];
-		}
-		printf("Modo de Nodo: %s\r\n",form.tipo);
-	}
-	else{
-		return false;
-	}
-
-	tipo = str2enum(form.tipo);
-
-	switch(tipo){
-		case(rs485):
-		ini=strstr(p,"baud_rate=");
-		if(ini!=NULL){
-			ini+=sizeof("baud_rate=")-1;
-			char baud[10];
-			count = 0;
-			int auxRate;
-			for(int i = 0; ini[i]!='&';i++){
-				baud[i]=ini[i];
-				count++;
-			}
-			baud[count]=0;
-			auxRate = atoi(baud);
-			if(auxRate>=0){
-				form.baud_rate =(uint32_t)auxRate;
-				printf("Baud Rate:%d\r\n",form.baud_rate);
-			}else{
-				return false;
-			}
-		}
-
-		break;
-
-		case(pulsos):
-			/*Extrayendo Factor de Conversion*/
-				ini=strstr(p,"conversion=");
-				if(ini!=NULL){
-					ini+=sizeof("conversion=")-1;
-					char conversion[5];
-					count = 0;
-					int cont;
-					for(int i = 0; ini[i]!='&';i++){
-						conversion[i]=ini[i];
-						count++;
-					}
-					conversion[count]=0;
-					cont = atoi(conversion);
-					if(cont>=0){
-						form.conversion =(uint16_t)cont;
-						printf("Factor de conversion: %d imp/kWh\r\n",form.conversion);
-					}else{
-						return false;
-					}
-				}
-				/*Extrayendo Medida Inicial*/
-				ini=strstr(p,"energia=");
-				if(ini!=NULL){
-					ini+=sizeof("energia=")-1;
-					char energy[]="";
-					float backup_f;
-					uint64_t backup=0;
-					for(int i = 0; ini[i]!='&';i++){
-						energy[i]=ini[i];
-					}
-					backup_f = atof(energy);
-					printf("Medicion Energia:%.4fkWh\r\n",backup_f);
-					backup = round(backup_f*form.conversion);
-					if((backup>0)&(backup!=0)){
-						form.energia = backup;
-						printf("Medicion Pulsos:%"PRIu64"\r\n",form.energia);
-					}
-				}
-				/*Extrayendo Slave IDl*/
-				ini=strstr(p,"slaveid=");
-				if(ini!=NULL){
-					ini+=sizeof("slaveid=")-1;
-					char slaveid[3];
-					count = 0;
-					int auxSlave;
-					for(int i = 0; ini[i]!='&';i++){
-						slaveid[i]=ini[i];
-						count++;
-					}
-					slaveid[count]=0;
-					auxSlave = atoi(slaveid);
-					if(auxSlave>=0){
-						form.slaveid =(uint8_t)auxSlave;
-						printf("Slave ID:%d\r\n",form.slaveid);
-					}else{
-						return false;
-					}
-				}
-				break;
-
-		case(chino):
-		ini=strstr(p,"baud_rate=");
-				if(ini!=NULL){
-					ini+=sizeof("baud_rate=")-1;
-					char baud[10];
-					count = 0;
-					int auxRate;
-					for(int i = 0; ini[i]!='&';i++){
-						baud[i]=ini[i];
-						count++;
-					}
-					baud[count]=0;
-					auxRate = atoi(baud);
-					if(auxRate>=0){
-						form.baud_rate =(uint32_t)auxRate;
-						printf("Baud Rate:%d\r\n",form.baud_rate);
-					}else{
-						return false;
-					}
-				}
-				break;
-
-		case(enlace):
-		break;
-	}
-	set_form_flash_modbus(form);
+//	/*Extrayendo Modo Output*/
+//	ini = strstr(p,"modoOutput=");
+//	if(ini!=NULL){
+//		ini +=sizeof("modoOutput=")-1;
+//		for(int i =0;ini[i]!='&';i++){
+//			form.tipo[i]=ini[i];
+//		}
+//		printf("Modo de Nodo: %s\r\n",form.tipo);
+//	}
+//	else{
+//		return false;
+//	}
+//
+//	tipo = str2enum(form.tipo);
+//
+//	switch(tipo){
+//		case(rs485):
+//		ini=strstr(p,"baud_rate=");
+//		if(ini!=NULL){
+//			ini+=sizeof("baud_rate=")-1;
+//			char baud[10];
+//			count = 0;
+//			int auxRate;
+//			for(int i = 0; ini[i]!='&';i++){
+//				baud[i]=ini[i];
+//				count++;
+//			}
+//			baud[count]=0;
+//			auxRate = atoi(baud);
+//			if(auxRate>=0){
+//				form.baud_rate =(uint32_t)auxRate;
+//				printf("Baud Rate:%d\r\n",form.baud_rate);
+//			}else{
+//				return false;
+//			}
+//		}
+//
+//		break;
+//
+//		case(pulsos):
+//			/*Extrayendo Factor de Conversion*/
+//				ini=strstr(p,"conversion=");
+//				if(ini!=NULL){
+//					ini+=sizeof("conversion=")-1;
+//					char conversion[5];
+//					count = 0;
+//					int cont;
+//					for(int i = 0; ini[i]!='&';i++){
+//						conversion[i]=ini[i];
+//						count++;
+//					}
+//					conversion[count]=0;
+//					cont = atoi(conversion);
+//					if(cont>=0){
+//						form.conversion =(uint16_t)cont;
+//						printf("Factor de conversion: %d imp/kWh\r\n",form.conversion);
+//					}else{
+//						return false;
+//					}
+//				}
+//				/*Extrayendo Medida Inicial*/
+//				ini=strstr(p,"energia=");
+//				if(ini!=NULL){
+//					ini+=sizeof("energia=")-1;
+//					char energy[]="";
+//					float backup_f;
+//					uint64_t backup=0;
+//					for(int i = 0; ini[i]!='&';i++){
+//						energy[i]=ini[i];
+//					}
+//					backup_f = atof(energy);
+//					printf("Medicion Energia:%.4fkWh\r\n",backup_f);
+//					backup = round(backup_f*form.conversion);
+//					if((backup>0)&(backup!=0)){
+//						form.energia = backup;
+//						printf("Medicion Pulsos:%"PRIu64"\r\n",form.energia);
+//					}
+//				}
+//				/*Extrayendo Slave IDl*/
+//				ini=strstr(p,"slaveid=");
+//				if(ini!=NULL){
+//					ini+=sizeof("slaveid=")-1;
+//					char slaveid[3];
+//					count = 0;
+//					int auxSlave;
+//					for(int i = 0; ini[i]!='&';i++){
+//						slaveid[i]=ini[i];
+//						count++;
+//					}
+//					slaveid[count]=0;
+//					auxSlave = atoi(slaveid);
+//					if(auxSlave>=0){
+//						form.slaveid =(uint8_t)auxSlave;
+//						printf("Slave ID:%d\r\n",form.slaveid);
+//					}else{
+//						return false;
+//					}
+//				}
+//				break;
+//
+//		case(chino):
+//		ini=strstr(p,"baud_rate=");
+//				if(ini!=NULL){
+//					ini+=sizeof("baud_rate=")-1;
+//					char baud[10];
+//					count = 0;
+//					int auxRate;
+//					for(int i = 0; ini[i]!='&';i++){
+//						baud[i]=ini[i];
+//						count++;
+//					}
+//					baud[count]=0;
+//					auxRate = atoi(baud);
+//					if(auxRate>=0){
+//						form.baud_rate =(uint32_t)auxRate;
+//						printf("Baud Rate:%d\r\n",form.baud_rate);
+//					}else{
+//						return false;
+//					}
+//				}
+//				break;
+//
+//		case(enlace):
+//		break;
+//	}
+//	set_form_flash_modbus(form);
 	return true;
 }
 
@@ -817,8 +1069,6 @@ static esp_err_t form_mesh_get_handler(httpd_req_t *req){/*Toma los datos de la 
 	 sprintf(mesh_id,MACSTR,MAC2STR(fweb_mesh_config.mesh_id));
 
 	 cJSON *root = cJSON_CreateObject();
-	 cJSON_AddStringToObject(root, "ssid", fweb_mesh_config.ssid);
-	 cJSON_AddStringToObject(root, "password", fweb_mesh_config.password);
 	 cJSON_AddStringToObject(root, "meshID", mesh_id);
 	 cJSON_AddStringToObject(root, "mesh_password", fweb_mesh_config.meshappass);
 	 cJSON_AddNumberToObject(root, "max_layer", fweb_mesh_config.max_layer);

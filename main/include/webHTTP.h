@@ -20,10 +20,10 @@
 void ServidorHTTP();
 #endif
 
-struct form_wifiloc{
+typedef struct form_locwifi{
 	char ssid[20];
 	char password[20];
-};
+}form_locwifi;
 
 typedef struct form_modbus{
 	char tipo[7];
@@ -62,12 +62,12 @@ struct form_home{
 };
 
 typedef struct form_mqtt{
-	bool advance;
+	uint8_t advance;
 	char uri[50];
 	char ip[20];
 	uint16_t port;
 	char pubtopic[20];
-	bool type;
+	uint8_t type;
 	char user[20];
 	char password[20];
 	uint8_t app_layer;
@@ -113,11 +113,11 @@ typedef union{
 
 tipo_de_medidor str2enum (const char *str);
 
-void set_form_flash_mesh(struct form_home form);
-void set_form_flash_modbus(struct form_home form);
-void get_form_flash_mesh(struct form_home *form);
-bool fill_form_mesh(char * p, struct form_home *form);
-bool fill_form_modbus(char *p,struct form_home form);
+void set_form_flash_mesh(form_mesh form);
+void set_form_flash_modbus(form_modbus form);
+void get_form_flash_mesh(form_mesh *form);
+bool fill_form_mesh(char * p, form_mesh *form);
+bool fill_form_modbus(char *p,form_modbus *form);
 
 
 /******************************************************************/
