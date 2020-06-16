@@ -1,52 +1,51 @@
-
-var id_campos = ['usuario','contrasena'];
-
 function $(arg){
      try{return document.getElementById(String(arg));}
      catch(error){console.log(error);}
  }
 
-function reset_form(){
-     for (i in id_campos){
-          $(id_campos[i]).value = '';
-     }
-}
+const formulario =$('login');
+formulario.addEventListener('submit',validar);
 
-function user_send(){
+function user_send(valor_campos){
 
      var req = new XMLHttpRequest();
-
-     myObj = {'usuario': null, 'contrasena':null}
 
      req.onreadystatechange = function(){
           if(this.readyState==4 && this.status==200){
                console.log(this.responseText);
                if(this.responseText == "valido"){
-               location.href = "/paginas/meshconf.html";
+               location.href = "/app-mesh.html";
                }else{
                     alert('Usuario o contraseña invalido');
-                    reset_form();
+                    formulario.reset();
                }
           }
      }
-      
-     for(i in myObj){
-          myObj[i] = $(i).value;
-     }
 
-     myObj_string = JSON.stringify(myObj);
+     myObj_string = JSON.stringify(valor_campos);
+
+     console.log(myObj_string);
 
      req.open("POST", "/login", true);
      req.send(myObj_string);
 }
 
-function validar() {
-     var valor_campos = {"usuario" : null, "contrasena": null,};
+function validar(evt) {
 
-     valor_campos.usuario=$('usuario').value;
-     valor_campos.contrasena=$('contrasena').value;
+     evt.preventDefault();
+
+     let valor_campos = {"usuario" : null, "contrasena": null,"remember":null};
 
      for(i in valor_campos){
+          if(i==='remember'){
+               valor_campos[i] = $(i).checked;
+               continue;
+          }
+          valor_campos[i] = $(i).value;
+     }
+
+     for(i in valor_campos){
+
           if (valor_campos[i]===''){
                alert('Usuario y contraseña requeridos');
                return false;
@@ -56,5 +55,6 @@ function validar() {
                return false;
           }
      }
-     user_send();
+
+     user_send(valor_campos);
 }

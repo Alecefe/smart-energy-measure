@@ -10,8 +10,11 @@ const char valid_user[] ="admin";
 const char valid_pass[] ="admin";
 
 form_login fweb_login;
-
 form_mesh fweb_mesh_config;
+form_modbus fweb_modbus;
+form_mqtt fweb_mqtt;
+form_locwifi fweb_locwifi;
+
 
 #define REST_CHECK(a, str, goto_tag, ...)                                              \
     do                                                                                 \
@@ -744,10 +747,10 @@ bool fill_form_mesh(char * p, form_mesh *form){
     cJSON *root = cJSON_Parse(p);
     char *eptr;
     char *sys_info = cJSON_Print(root);
-    ESP_LOGI("FILL","%s",sys_info);
+    ESP_LOGI("FILL MESH","%s",sys_info);
 
     /*Mesh ID*/
-    char *aux_meshID = cJSON_GetObjectItem(root, "meshID")->valuestring;
+    char *aux_meshID = cJSON_GetObjectItem(root, "meshid")->valuestring;
     if(strlen(aux_meshID)!=17){
     	printf("Mesh ID No válida : %s %d", aux_meshID,strlen(aux_meshID));
     	return false;}
@@ -766,169 +769,205 @@ bool fill_form_mesh(char * p, form_mesh *form){
     	form->mesh_id[i/3]=((0x0f&aux_meshID[i])<<4)|(0x0f&aux_meshID[i+1]);
     	i+=2;
     }
-    ESP_LOGW("FILL","meshID: "MACSTR ,MAC2STR(form->mesh_id));
+    ESP_LOGW("FILL MESH","meshID: "MACSTR ,MAC2STR(form->mesh_id));
 
     /*Mesh access password*/
-    char* aux_mesh_password = cJSON_GetObjectItem(root, "mesh_password")->valuestring;
+    char* aux_mesh_password = cJSON_GetObjectItem(root, "meshpass")->valuestring;
     if(strlen(aux_mesh_password)<6||strlen(aux_mesh_password)>15){
     	printf("Contraseña de la red mesh no válida");
     	return false;
     }else{ for(int i = 0; i<=strlen(aux_mesh_password);i++){form->meshappass[i]=aux_mesh_password[i];}}
-    ESP_LOGW("FILL","Mesh access password: %s",form->meshappass);
+    ESP_LOGW("FILL MESH","Mesh access password: %s",form->meshappass);
 
     /*Max Layer*/
-    uint8_t aux_max_layer = (uint8_t) strtoul(cJSON_GetObjectItem(root, "max_layer")->valuestring,&eptr,10);
+    uint8_t aux_max_layer = (uint8_t) strtoul(cJSON_GetObjectItem(root, "maxlayer")->valuestring,&eptr,10);
     if(aux_max_layer>=10 && aux_max_layer<=25){form->max_layer = aux_max_layer;}else{return false;}
-    ESP_LOGW("FILL","Layers: %d", form->max_layer);
+    ESP_LOGW("FILL MESH","Layers: %d", form->max_layer);
 
     /*Max sta*/
-    uint8_t aux_max_sta = (uint8_t) strtoul(cJSON_GetObjectItem(root, "max_sta")->valuestring,&eptr,10);
+    uint8_t aux_max_sta = (uint8_t) strtoul(cJSON_GetObjectItem(root, "maxsta")->valuestring,&eptr,10);
     if(aux_max_sta>=1 && aux_max_sta <=9){form->max_sta = aux_max_sta;}else{return false;}
-    ESP_LOGW("FILL","STA: %d", form->max_sta);
+    ESP_LOGW("FILL MESH","STA: %d", form->max_sta);
 
     /*Port*/
     uint32_t aux_port = (uint32_t) strtoul(cJSON_GetObjectItem(root, "port")->valuestring,&eptr,10);
     if(aux_port<=65535){form->port = (uint16_t)aux_port;}else{return false;}
-    ESP_LOGW("FILL","Port: %d", form->port);
+    ESP_LOGW("FILL MESH","Port: %d", form->port);
 
 	cJSON_Delete(root);
 	return true;
 }
 
 bool fill_form_modbus(char *p, form_modbus * form){
-	char *ini;
-	int count;
-	tipo_de_medidor tipo;
 
-//	/*Extrayendo Modo Output*/
-//	ini = strstr(p,"modoOutput=");
-//	if(ini!=NULL){
-//		ini +=sizeof("modoOutput=")-1;
-//		for(int i =0;ini[i]!='&';i++){
-//			form.tipo[i]=ini[i];
-//		}
-//		printf("Modo de Nodo: %s\r\n",form.tipo);
-//	}
-//	else{
-//		return false;
-//	}
-//
-//	tipo = str2enum(form.tipo);
-//
-//	switch(tipo){
-//		case(rs485):
-//		ini=strstr(p,"baud_rate=");
-//		if(ini!=NULL){
-//			ini+=sizeof("baud_rate=")-1;
-//			char baud[10];
-//			count = 0;
-//			int auxRate;
-//			for(int i = 0; ini[i]!='&';i++){
-//				baud[i]=ini[i];
-//				count++;
-//			}
-//			baud[count]=0;
-//			auxRate = atoi(baud);
-//			if(auxRate>=0){
-//				form.baud_rate =(uint32_t)auxRate;
-//				printf("Baud Rate:%d\r\n",form.baud_rate);
-//			}else{
-//				return false;
-//			}
-//		}
-//
-//		break;
-//
-//		case(pulsos):
-//			/*Extrayendo Factor de Conversion*/
-//				ini=strstr(p,"conversion=");
-//				if(ini!=NULL){
-//					ini+=sizeof("conversion=")-1;
-//					char conversion[5];
-//					count = 0;
-//					int cont;
-//					for(int i = 0; ini[i]!='&';i++){
-//						conversion[i]=ini[i];
-//						count++;
-//					}
-//					conversion[count]=0;
-//					cont = atoi(conversion);
-//					if(cont>=0){
-//						form.conversion =(uint16_t)cont;
-//						printf("Factor de conversion: %d imp/kWh\r\n",form.conversion);
-//					}else{
-//						return false;
-//					}
-//				}
-//				/*Extrayendo Medida Inicial*/
-//				ini=strstr(p,"energia=");
-//				if(ini!=NULL){
-//					ini+=sizeof("energia=")-1;
-//					char energy[]="";
-//					float backup_f;
-//					uint64_t backup=0;
-//					for(int i = 0; ini[i]!='&';i++){
-//						energy[i]=ini[i];
-//					}
-//					backup_f = atof(energy);
-//					printf("Medicion Energia:%.4fkWh\r\n",backup_f);
-//					backup = round(backup_f*form.conversion);
-//					if((backup>0)&(backup!=0)){
-//						form.energia = backup;
-//						printf("Medicion Pulsos:%"PRIu64"\r\n",form.energia);
-//					}
-//				}
-//				/*Extrayendo Slave IDl*/
-//				ini=strstr(p,"slaveid=");
-//				if(ini!=NULL){
-//					ini+=sizeof("slaveid=")-1;
-//					char slaveid[3];
-//					count = 0;
-//					int auxSlave;
-//					for(int i = 0; ini[i]!='&';i++){
-//						slaveid[i]=ini[i];
-//						count++;
-//					}
-//					slaveid[count]=0;
-//					auxSlave = atoi(slaveid);
-//					if(auxSlave>=0){
-//						form.slaveid =(uint8_t)auxSlave;
-//						printf("Slave ID:%d\r\n",form.slaveid);
-//					}else{
-//						return false;
-//					}
-//				}
-//				break;
-//
-//		case(chino):
-//		ini=strstr(p,"baud_rate=");
-//				if(ini!=NULL){
-//					ini+=sizeof("baud_rate=")-1;
-//					char baud[10];
-//					count = 0;
-//					int auxRate;
-//					for(int i = 0; ini[i]!='&';i++){
-//						baud[i]=ini[i];
-//						count++;
-//					}
-//					baud[count]=0;
-//					auxRate = atoi(baud);
-//					if(auxRate>=0){
-//						form.baud_rate =(uint32_t)auxRate;
-//						printf("Baud Rate:%d\r\n",form.baud_rate);
-//					}else{
-//						return false;
-//					}
-//				}
-//				break;
-//
-//		case(enlace):
-//		break;
-//	}
-//	set_form_flash_modbus(form);
+    cJSON *root = cJSON_Parse(p);
+    char *eptr;
+    char *sys_info = cJSON_Print(root);
+    ESP_LOGI("FILL MODBUS","%s",sys_info);
+
+    /*Meter type*/
+    char* aux_modbus_type = cJSON_GetObjectItem(root, "type")->valuestring;
+
+    if(!strcmp("enlace",aux_modbus_type)){
+    	sprintf(form->tipo,"%s","enlace");
+    }else if(!strcmp("logo",aux_modbus_type)){
+    	sprintf(form->tipo,"%s","chino");
+    }else if(!strcmp("pulsos",aux_modbus_type)){
+    	sprintf(form->tipo,"%s","pulsos");
+    }else if(!strcmp("standard-rs485",aux_modbus_type)){
+    	sprintf(form->tipo,"%s","rs485");
+    }else{
+    	ESP_LOGW("FILL MODBUS","Meter type invalid");
+    	return false;
+    }
+    ESP_LOGW("FILL MODBUS","Modbus meter type: %s",form->tipo);
+
+    /*Baud rate*/
+    uint32_t aux_baud_rate = (uint32_t) strtoul(cJSON_GetObjectItem(root, "baudrate")->valuestring,&eptr,10);
+    if(aux_baud_rate>=1 && aux_baud_rate<=19200){form->baud_rate = aux_baud_rate;}else{return false;}
+    ESP_LOGW("FILL MODBUS","Baud rate: %u", form->baud_rate);
+
+    /*Conversion factor*/
+    uint16_t aux_conversion = (uint16_t) strtoul(cJSON_GetObjectItem(root, "convfac")->valuestring,&eptr,10);
+    if(aux_conversion>=1){form->conversion = aux_conversion;}else{return false;}
+    ESP_LOGW("FILL MODBUS","Conversion Factor: %u", form->conversion);
+
+    /*Energia inicial*/
+    uint64_t aux_iniene = (uint64_t) strtoul(cJSON_GetObjectItem(root, "iniene")->valuestring,&eptr,10);
+    if(aux_iniene>=0){form->energia = aux_iniene;}else{return false;}
+    ESP_LOGW("FILL MODBUS","Energia inicial: %llu", form->energia);
+
+    /*Slave ID*/
+    uint8_t aux_slaveid = (uint8_t) strtoul(cJSON_GetObjectItem(root, "slaveid")->valuestring,&eptr,10);
+    if(aux_slaveid>=1 && aux_slaveid<=254){form->slaveid = aux_slaveid;}else{return false;}
+    ESP_LOGW("FILL MODBUS","Energia inicial: %u", form->slaveid);
+
+	cJSON_Delete(root);
+    return true;
+}
+
+bool fill_form_locwifi(char*p, form_locwifi * form){
+
+	cJSON *root = cJSON_Parse(p);
+    char *sys_info = cJSON_Print(root);
+    ESP_LOGI("FILL LOCWIFI","%s",sys_info);
+
+    /*Local SSID*/
+    char* aux_ssid = cJSON_GetObjectItem(root, "ssid")->valuestring;
+    if(strlen(aux_ssid)<6||strlen(aux_ssid)>15){
+    	printf("SSID no válido");
+    	return false;
+    }else{ for(int i = 0; i<=strlen(aux_ssid);i++){form->ssid[i]=aux_ssid[i];}}
+    ESP_LOGW("FILL LOCWIFI","Local WiFi SSID: %s",form->ssid);
+
+    /*Local password*/
+    char* aux_pass = cJSON_GetObjectItem(root, "pass")->valuestring;
+    if(strlen(aux_pass)<6||strlen(aux_pass)>15){
+    	printf("Password no válido");
+    	return false;
+    }else{ for(int i = 0; i<=strlen(aux_pass);i++){form->password[i]=aux_pass[i];}}
+    ESP_LOGW("FILL LOCWIFI","Local WiFi password: %s",form->password);
+
+	cJSON_Delete(root);
 	return true;
 }
 
+bool fill_form_login(char*p, form_login * form){
+
+	cJSON *root = cJSON_Parse(p);
+    char *sys_info = cJSON_Print(root);
+    ESP_LOGI("FILL LOGIN","%s",sys_info);
+
+    /*User Login*/
+    char* aux_user = cJSON_GetObjectItem(root, "user")->valuestring;
+    if(strlen(aux_user)<6||strlen(aux_user)>15){
+    	printf("Usuario no válido");
+    	return false;
+    }else{ for(int i = 0; i<=strlen(aux_user);i++){form->user[i]=aux_user[i];}}
+    ESP_LOGW("FILL LOGIN","Local WiFi SSID: %s",form->user);
+
+    /*Password Login*/
+    char* aux_pass = cJSON_GetObjectItem(root, "pass")->valuestring;
+    if(strlen(aux_pass)<6||strlen(aux_pass)>15){
+    	printf("Password no válido");
+    	return false;
+    }else{ for(int i = 0; i<=strlen(aux_pass);i++){form->password[i]=aux_pass[i];}}
+    ESP_LOGW("FILL LOGIN","Local WiFi password: %s",form->password);
+
+	cJSON_Delete(root);
+	return true;
+}
+
+bool fill_form_mqtt(char*p, form_mqtt * form){
+
+	cJSON *root = cJSON_Parse(p);
+    char *eptr;
+    char *sys_info = cJSON_Print(root);
+    ESP_LOGI("FILL MQTT","%s",sys_info);
+
+    /*Advance*/
+    uint8_t aux_advance = (uint8_t) strtoul(cJSON_GetObjectItem(root, "advance")->valuestring,&eptr,10);
+    if(aux_advance==1 || aux_advance==0){form->advance = aux_advance;}else{return false;}
+    ESP_LOGW("FILL MQTT","%s",(form->advance==1)?"Advanced settings ON":"Advanced settings OFF");
+
+    /*URI*/
+    char* aux_uri = cJSON_GetObjectItem(root, "uri")->valuestring;
+    if(strlen(aux_uri)>50){
+    	printf("URI no válido");
+    	return false;
+    }else{ for(int i = 0; i<=strlen(aux_uri);i++){form->uri[i]=aux_uri[i];}}
+    ESP_LOGW("FILL MQTT","URI: %s",form->uri);
+
+     /*IP*/
+     char* aux_ip = cJSON_GetObjectItem(root, "ip")->valuestring;
+     if(strlen(aux_ip)>20){
+     	printf("IP no válido");
+     	return false;
+     }else{ for(int i = 0; i<=strlen(aux_ip);i++){form->ip[i]=aux_ip[i];}}
+     ESP_LOGW("FILL MQTT","IP: %s",form->ip);
+
+     /*Port*/
+      uint16_t aux_port = (uint16_t) strtoul(cJSON_GetObjectItem(root, "port")->valuestring,&eptr,10);
+      if(aux_port>0){form->port = aux_port;}else{return false;}
+      ESP_LOGW("FILL MQTT","MQTT Port: %u",form->port);
+
+      /*Publication topic*/
+      char* aux_pubtopic = cJSON_GetObjectItem(root, "topic")->valuestring;
+      if(strlen(aux_pubtopic)>20){
+      	printf("IP no válido");
+      	return false;
+      }else{ for(int i = 0; i<=strlen(aux_pubtopic);i++){form->pubtopic[i]=aux_pubtopic[i];}}
+      ESP_LOGW("FILL MQTT","Publication topic: %s",form->pubtopic);
+
+      /*Type*/
+       uint8_t aux_type = (uint8_t) strtoul(cJSON_GetObjectItem(root, "type")->valuestring,&eptr,10);
+       if(aux_type==1 || aux_type==0){form->type = aux_type;}else{return false;}
+       ESP_LOGW("FILL MQTT","%s",(form->type==1)?"Type of broker: Public":"Type of broker: Private");
+
+       /*User*/
+       char* aux_user = cJSON_GetObjectItem(root, "user")->valuestring;
+       if(strlen(aux_user)>20){
+       	printf("User no válido");
+       	return false;
+       }else{ for(int i = 0; i<=strlen(aux_user);i++){form->user[i]=aux_user[i];}}
+       ESP_LOGW("FILL MQTT","MQTT User: %s",form->user);
+
+       /*User*/
+       char* aux_password = cJSON_GetObjectItem(root, "password")->valuestring;
+       if(strlen(aux_password)>20){
+       	printf("Password no válido");
+       	return false;
+       }else{ for(int i = 0; i<=strlen(aux_password);i++){form->password[i]=aux_password[i];}}
+       ESP_LOGW("FILL MQTT","MQTT Password: %s",form->password);
+
+       /*App Layer*/
+       uint8_t aux_applayer = (uint8_t) strtoul(cJSON_GetObjectItem(root, "app_layer")->valuestring,&eptr,10);
+       if(aux_applayer==1 || aux_applayer==2 || aux_applayer==3 || aux_applayer==4){form->app_layer = aux_applayer;}else{return false;}
+       ESP_LOGW("FILL MQTT","%s",(form->advance==1)?"App Layer: TCP":(form->advance==2)?"App Layer: SSL":(form->advance==3)?"App Layer: WS":"App Layer: WSS");
+
+   	cJSON_Delete(root);
+	return true;
+}
 
 /*********************** SOCKET HTTP *******************************************************/
 
@@ -973,7 +1012,7 @@ static esp_err_t rest_common_get_handler(httpd_req_t *req)
     strlcpy(filepath, rest_context->base_path, sizeof(filepath));
 
     if (req->uri[strlen(req->uri) - 1] == '/' || pasa) {
-        strlcat(filepath, "/index.html", sizeof(filepath));
+        strlcat(filepath, "/login.html", sizeof(filepath));
     } else {
         strlcat(filepath, req->uri, sizeof(filepath));
     }
@@ -1069,14 +1108,14 @@ static esp_err_t form_mesh_get_handler(httpd_req_t *req){/*Toma los datos de la 
 	 sprintf(mesh_id,MACSTR,MAC2STR(fweb_mesh_config.mesh_id));
 
 	 cJSON *root = cJSON_CreateObject();
-	 cJSON_AddStringToObject(root, "meshID", mesh_id);
-	 cJSON_AddStringToObject(root, "mesh_password", fweb_mesh_config.meshappass);
-	 cJSON_AddNumberToObject(root, "max_layer", fweb_mesh_config.max_layer);
-	 cJSON_AddNumberToObject(root, "max_sta", fweb_mesh_config.max_sta);
+	 cJSON_AddStringToObject(root, "meshid", mesh_id);
+	 cJSON_AddStringToObject(root, "meshpass", fweb_mesh_config.meshappass);
+	 cJSON_AddNumberToObject(root, "maxlayer", fweb_mesh_config.max_layer);
+	 cJSON_AddNumberToObject(root, "maxsta", fweb_mesh_config.max_sta);
 	 cJSON_AddNumberToObject(root, "port", fweb_mesh_config.port);
 	 const char *sys_info = cJSON_Print(root);
 	 cJSON_Delete(root);
-	 ESP_LOGI("JSON","%s",sys_info);
+	 ESP_LOGI("JSON MESH","%s",sys_info);
 	 ESP_LOGI("DEBUG","%d",strlen(sys_info));
 
 	 httpd_resp_send(req, sys_info, strlen(sys_info));
@@ -1109,7 +1148,7 @@ static esp_err_t form_mesh_post_handler(httpd_req_t *req){/*Recepción de formul
     ESP_LOGI("DEBUG","BUFFER: %s",buf);
     if(fill_form_mesh(buf, &fweb_mesh_config)){
     	set_form_flash_mesh(fweb_mesh_config);
-    	httpd_resp_sendstr(req, "Success");
+    	httpd_resp_sendstr(req, "safe");
     	return ESP_OK;
     }else{
     	httpd_resp_sendstr(req, "Error");
@@ -1119,35 +1158,225 @@ static esp_err_t form_mesh_post_handler(httpd_req_t *req){/*Recepción de formul
 }
 
 static esp_err_t form_modbus_get_handler(httpd_req_t *req){
-	return ESP_FAIL;
+
+	ESP_LOGI(TAG,"req->uri: %s",req->uri);
+
+	get_form_flash_modbus(&fweb_modbus);
+	httpd_resp_set_status(req, HTTPD_200);
+	httpd_resp_set_type(req, HTTPD_TYPE_JSON);
+
+	 cJSON *root = cJSON_CreateObject();
+	 cJSON_AddStringToObject(root, "type", fweb_modbus.tipo);
+	 cJSON_AddNumberToObject(root, "baudrate", fweb_modbus.baud_rate);
+	 cJSON_AddNumberToObject(root, "convfac", fweb_modbus.conversion);
+	 cJSON_AddNumberToObject(root, "iniene", fweb_modbus.energia);
+	 cJSON_AddNumberToObject(root, "slaveid", fweb_modbus.slaveid);
+	 const char *sys_info = cJSON_Print(root);
+	 cJSON_Delete(root);
+	 ESP_LOGI("JSON MODBUS","%s %d",sys_info, strlen(sys_info));
+
+	 httpd_resp_send(req, sys_info, strlen(sys_info));
+
+	return ESP_OK;
 }
 
 static esp_err_t form_modbus_post_handler(httpd_req_t *req){
-	return ESP_FAIL;
+
+    int total_len = req->content_len;
+    int cur_len = 0;
+    char *buf = ((rest_server_context_t *)(req->user_ctx))->scratch;
+    int received = 0;
+    if (total_len >= SCRATCH_BUFSIZE) {
+        /* Respond with 500 Internal Server Error */
+        httpd_resp_send_err(req, HTTPD_500_INTERNAL_SERVER_ERROR, "content too long");
+        return ESP_FAIL;
+    }
+    while (cur_len < total_len) {
+        received = httpd_req_recv(req, buf + cur_len, total_len);
+        if (received <= 0) {
+            /* Respond with 500 Internal Server Error */
+            httpd_resp_send_err(req, HTTPD_500_INTERNAL_SERVER_ERROR, "Failed to post control value");
+            return ESP_FAIL;
+        }
+        cur_len += received;
+    }
+    buf[total_len] = '\0';
+
+    ESP_LOGI("DEBUG","BUFFER: %s",buf);
+    if(fill_form_modbus(buf, &fweb_modbus)){
+    	set_form_flash_modbus(fweb_modbus);
+    	httpd_resp_sendstr(req, "safe");
+    	return ESP_OK;
+    }else{
+    	httpd_resp_sendstr(req, "Error");
+    	return ESP_FAIL;
+    }
 }
 
 static esp_err_t form_locwifi_get_handler(httpd_req_t *req){
-	return ESP_FAIL;
+
+	ESP_LOGI(TAG,"req->uri: %s",req->uri);
+
+	get_form_flash_locwifi(&fweb_locwifi);
+	httpd_resp_set_status(req, HTTPD_200);
+	httpd_resp_set_type(req, HTTPD_TYPE_JSON);
+
+	 cJSON *root = cJSON_CreateObject();
+	 cJSON_AddStringToObject(root, "ssid", fweb_locwifi.ssid);
+	 cJSON_AddStringToObject(root, "pass", fweb_locwifi.password);
+	 const char *sys_info = cJSON_Print(root);
+	 cJSON_Delete(root);
+	 ESP_LOGI("JSON WIFILOC","%s %d",sys_info, strlen(sys_info));
+
+	 httpd_resp_send(req, sys_info, strlen(sys_info));
+
+	return ESP_OK;
 }
 
 static esp_err_t form_locwifi_post_handler(httpd_req_t *req){
-	return ESP_FAIL;
+
+	int total_len = req->content_len;
+    int cur_len = 0;
+    char *buf = ((rest_server_context_t *)(req->user_ctx))->scratch;
+    int received = 0;
+    if (total_len >= SCRATCH_BUFSIZE) {
+        /* Respond with 500 Internal Server Error */
+        httpd_resp_send_err(req, HTTPD_500_INTERNAL_SERVER_ERROR, "content too long");
+        return ESP_FAIL;
+    }
+    while (cur_len < total_len) {
+        received = httpd_req_recv(req, buf + cur_len, total_len);
+        if (received <= 0) {
+            /* Respond with 500 Internal Server Error */
+            httpd_resp_send_err(req, HTTPD_500_INTERNAL_SERVER_ERROR, "Failed to post control value");
+            return ESP_FAIL;
+        }
+        cur_len += received;
+    }
+    buf[total_len] = '\0';
+
+    ESP_LOGI("DEBUG","BUFFER: %s",buf);
+    if(fill_form_locwifi(buf, &fweb_locwifi)){
+    	set_form_flash_locwifi(fweb_locwifi);
+    	httpd_resp_sendstr(req, "safe");
+    	return ESP_OK;
+    }else{
+    	httpd_resp_sendstr(req, "Error");
+    	return ESP_FAIL;
+    }
 }
 
 static esp_err_t form_userlog_get_handler(httpd_req_t *req){
-	return ESP_FAIL;
+
+	ESP_LOGI(TAG,"req->uri: %s",req->uri);
+
+	get_form_flash_login(&fweb_login);
+	httpd_resp_set_status(req, HTTPD_200);
+	httpd_resp_set_type(req, HTTPD_TYPE_JSON);
+
+	 cJSON *root = cJSON_CreateObject();
+	 cJSON_AddStringToObject(root, "user", fweb_login.user);
+	 cJSON_AddStringToObject(root, "pass", fweb_login.password);
+	 const char *sys_info = cJSON_Print(root);
+	 cJSON_Delete(root);
+	 ESP_LOGI("JSON USERLOG","%s %d",sys_info, strlen(sys_info));
+
+	 httpd_resp_send(req, sys_info, strlen(sys_info));
+
+	return ESP_OK;
 }
 
 static esp_err_t form_userlog_post_handler(httpd_req_t *req){
-	return ESP_FAIL;
+
+	int total_len = req->content_len;
+    int cur_len = 0;
+    char *buf = ((rest_server_context_t *)(req->user_ctx))->scratch;
+    int received = 0;
+    if (total_len >= SCRATCH_BUFSIZE) {
+        /* Respond with 500 Internal Server Error */
+        httpd_resp_send_err(req, HTTPD_500_INTERNAL_SERVER_ERROR, "content too long");
+        return ESP_FAIL;
+    }
+    while (cur_len < total_len) {
+        received = httpd_req_recv(req, buf + cur_len, total_len);
+        if (received <= 0) {
+            /* Respond with 500 Internal Server Error */
+            httpd_resp_send_err(req, HTTPD_500_INTERNAL_SERVER_ERROR, "Failed to post control value");
+            return ESP_FAIL;
+        }
+        cur_len += received;
+    }
+    buf[total_len] = '\0';
+
+    ESP_LOGI("DEBUG","BUFFER: %s",buf);
+    if(fill_form_login(buf, &fweb_login)){
+    	set_form_flash_login(fweb_login);
+    	httpd_resp_sendstr(req, "safe");
+    	return ESP_OK;
+    }else{
+    	httpd_resp_sendstr(req, "Error");
+    	return ESP_FAIL;
+    }
 }
 
 static esp_err_t form_mqtt_get_handler(httpd_req_t *req){
-	return ESP_FAIL;
+
+	ESP_LOGI(TAG,"req->uri: %s",req->uri);
+
+	get_form_flash_mqtt(&fweb_mqtt);
+	httpd_resp_set_status(req, HTTPD_200);
+	httpd_resp_set_type(req, HTTPD_TYPE_JSON);
+
+	 cJSON *root = cJSON_CreateObject();
+	 cJSON_AddNumberToObject(root, "advance", fweb_mqtt.advance);
+	 cJSON_AddNumberToObject(root, "app_layer", fweb_mqtt.app_layer);
+	 cJSON_AddStringToObject(root, "ip", fweb_mqtt.ip);
+	 cJSON_AddStringToObject(root, "password", fweb_mqtt.password);
+	 cJSON_AddNumberToObject(root, "port", fweb_mqtt.port);
+	 cJSON_AddStringToObject(root, "topic", fweb_mqtt.pubtopic);
+	 cJSON_AddNumberToObject(root, "type", fweb_mqtt.type);
+	 cJSON_AddStringToObject(root, "uri", fweb_mqtt.uri);
+	 cJSON_AddStringToObject(root, "user", fweb_mqtt.user);
+	 const char *sys_info = cJSON_Print(root);
+	 cJSON_Delete(root);
+	 ESP_LOGI("JSON MODBUS","%s %d",sys_info, strlen(sys_info));
+
+	 httpd_resp_send(req, sys_info, strlen(sys_info));
+
+	return ESP_OK;
 }
 
 static esp_err_t form_mqtt_post_handler(httpd_req_t *req){
-	return ESP_FAIL;
+
+	int total_len = req->content_len;
+    int cur_len = 0;
+    char *buf = ((rest_server_context_t *)(req->user_ctx))->scratch;
+    int received = 0;
+    if (total_len >= SCRATCH_BUFSIZE) {
+        /* Respond with 500 Internal Server Error */
+        httpd_resp_send_err(req, HTTPD_500_INTERNAL_SERVER_ERROR, "content too long");
+        return ESP_FAIL;
+    }
+    while (cur_len < total_len) {
+        received = httpd_req_recv(req, buf + cur_len, total_len);
+        if (received <= 0) {
+            /* Respond with 500 Internal Server Error */
+            httpd_resp_send_err(req, HTTPD_500_INTERNAL_SERVER_ERROR, "Failed to post control value");
+            return ESP_FAIL;
+        }
+        cur_len += received;
+    }
+    buf[total_len] = '\0';
+
+    ESP_LOGI("DEBUG","BUFFER: %s",buf);
+    if(fill_form_mqtt(buf, &fweb_mqtt)){
+    	set_form_flash_mqtt(fweb_mqtt);
+    	httpd_resp_sendstr(req, "safe");
+    	return ESP_OK;
+    }else{
+    	httpd_resp_sendstr(req, "Error");
+    	return ESP_FAIL;
+    }
 }
 
 /************************* INICIO DEL SERVIDOR Y MANEJADORES DE PETICIONES *****************************/
