@@ -1,0 +1,26 @@
+
+
+html,body{
+    height: 100%;
+    width: 100%;
+  
+}
+   
+body{
+  background: url("../img/fondo.png") no-repeat fixed center ;
+  height: 100%;
+  -webkit-background-size: cover;
+  -moz-background-size: cover;
+  -o-background-size: cover;
+  background-size: cover;
+
+}
+
+div>input {
+border-radius: 10px !important;
+}
+
+fieldset>button{
+  border-radius: 5px !important;
+  display: inline-block !important;
+}

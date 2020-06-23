@@ -178,8 +178,6 @@ static void tcp_server_task(void *pvParameters)
     	             		printf("Tiempo Listening %d s\r\n",(uint32_t)timeout_listen.tv_sec);
     	             	}
 
-
-
     	ESP_LOGI(TCP_TAG, "Socket created");
 
     int err = bind(listen_sock, (struct sockaddr *)&dest_addr, sizeof(dest_addr));   //Asigna ip al socket
@@ -412,8 +410,8 @@ void bus_rs485(void *arg){
 						longitud.Val =tx_buf[4]+tx_buf[5]-2;
 						tx_buf[4] = longitud.byte.HB;
 						tx_buf[5] = longitud.byte.LB;
-						tx_buf[4+longitud.Val] = NULL;
-						tx_buf[4+longitud.Val +1] = NULL;
+						tx_buf[4+longitud.Val] = 0x00;
+						tx_buf[4+longitud.Val +1] = 0x00;
 						for(int i =0; i < (longitud.Val +4);i++){
 							printf("tx_buf[%d] = %02x\r\n",i,tx_buf[i]);
 						}

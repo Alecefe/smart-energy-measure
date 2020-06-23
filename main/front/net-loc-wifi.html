@@ -1,0 +1,83 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta http-equiv="X-UA-Compatible" content="ie=edge">
+  <link rel="stylesheet" href="css/bootstrap-lux.min.css">
+  <script src="js/lib/jquery.min.js"></script>
+  <script src="js/lib/popper.min.js"></script>
+  <script src="js/lib/bootstrap.min.js"></script>
+  <link rel="stylesheet" href="css/estilos.css">
+
+  <title>LocalWifiConfig</title>
+
+</head>
+<body class="fondo-blur">
+  
+  <nav class="navbar navbar-expand-lg navbar-dark bg-primary pl-5 required">
+    <a class="navbar-brand font-weight-bolder" href="#">ESP32 Main configuration</a>
+    <button class="navbar-toggler" type="button" data-toggle="collapse" data-target="#navbarColor01" aria-controls="navbarColor01" aria-expanded="false" aria-label="Toggle navigation">
+      <span class="navbar-toggler-icon"></span>
+    </button>
+  
+    <div class="collapse navbar-collapse" id="navbarColor01">
+      <ul class="navbar-nav mr-auto">
+        <li class=" mx-1 nav-item active">
+          <a class="nav-link" href="#">Home</a>
+        </li>
+        <li class="mx-1 nav-item">
+          <div class="dropdown">
+            <a type="button" class="nav-link dropdown-toggle" data-toggle="dropdown">
+              Applications
+            </a>
+            <div class="dropdown-menu bg-primary pt-0" style="border: none;">
+              <a class="dropdown-item text-muted" href="app-mesh.html">Mesh</a>
+              <a class="dropdown-item text-muted" href="app-modbus.html">Modbus</a>
+              <a class="dropdown-item text-muted" href="app-mqtt.html">MQTT</a>
+            </div>
+          </div>
+        </li>
+        <li class="mx-1 nav-item">
+          <div class="dropdown">
+            <a type="button" class="nav-link dropdown-toggle" data-toggle="dropdown">
+              Network
+            </a>
+            <div class="dropdown-menu bg-primary pt-0" style="border: none;">
+              <a class="dropdown-item text-muted" href="#">Local WiFi</a>
+              <a class="dropdown-item text-muted" href="net-user-log.html">User Login</a>
+            </div>
+          </div>
+        </li>
+        <li class="mx-1 nav-item">
+          <a class="nav-link" href="about-us.html">About us</a>
+        </li>
+      </ul>
+
+    </div>
+  </nav>
+
+  <div class="row m-5">
+
+    <form class="col-form-label mx-auto w-40 px-5 pb-4" id="form-loc-wifi" style="border-radius: 10px; background: rgba(255, 255, 255, 0.9);">
+      <fieldset>
+        <legend class="">Local Wifi</legend>
+        <div class="form-group">
+          <label for="exampleInputPassword1">SSID</label>
+          <input type="text" class="form-control shadow-sm" id="net-wifi-ssid" placeholder="Your SSID" aria-describedby="mesh-id-help" required>
+
+        </div>
+        <div class="form-group">
+          <label for="WiFi-password">Password</label>
+          <input type="password" class="form-control shadow-sm" id="net-wifi-pass" aria-describedby="mesh-password-help" placeholder="Your password" required>
+        </div>
+
+        <button type="submit" class="mt-2 btn btn-primary btn-md btn-block" id="submit-loc-wifi">Submit</button>
+        
+      </fieldset>
+    </form>
+  </div>
+</body>
+
+<script src="js/net-loc-wifi.js"></script>
+</html>

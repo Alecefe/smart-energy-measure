@@ -1,9 +1,9 @@
 /*********************************************************************************/
 #include "include/webHTTP.h"
+#include "include/ram-heap.h"
 #include "esp_log.h"
 #include "math.h"
 const char *nvs_tag = "NVS";
-const char *http_server = "HTTP SERVER";
 static const char *REST_TAG = "esp-rest";
 static const char *TAG = "REQUEST";
 const char valid_user[] ="admin";
@@ -42,7 +42,7 @@ tipo_de_medidor str2enum (const char *str)
      for (j = 0;  j < sizeof (conversion) / sizeof (conversion[0]);  ++j)
          if (!strcmp (str, conversion[j].str))
              return conversion[j].val;
-     ESP_LOGI(http_server,"Tipo no valido");
+     ESP_LOGI("CONV.ENUM","Tipo no valido");
      return enlace;
 }
 
@@ -54,7 +54,7 @@ void set_form_flash_mesh(form_mesh form){
 
 	esp_err_t err;
 	nvs_handle_t ctrl_mesh;
-	err = nvs_open("storage",NVS_READWRITE,&ctrl_mesh);
+	err = nvs_open("mesh",NVS_READWRITE,&ctrl_mesh);
 	if (err != ESP_OK) {
 		printf("Error (%s) opening NVS handle!\n\r", esp_err_to_name(err));
 	}else{
@@ -89,7 +89,7 @@ void set_form_flash_modbus(form_modbus form){
 	esp_err_t err;
 	nvs_handle_t ctrl_modbus;
 
-	err = nvs_open("storage",NVS_READWRITE,&ctrl_modbus);
+	err = nvs_open("modbus",NVS_READWRITE,&ctrl_modbus);
 	if (err != ESP_OK) {
 		printf("Error (%s) opening NVS handle!\n", esp_err_to_name(err));
 	}else{
@@ -129,7 +129,7 @@ void set_form_flash_login(form_login form){
 
 	esp_err_t err;
 	nvs_handle_t ctrl_login;
-	err = nvs_open("storage",NVS_READWRITE,&ctrl_login);
+	err = nvs_open("login",NVS_READWRITE,&ctrl_login);
 	if (err != ESP_OK) {
 		printf("Error (%s) opening NVS handle!\n", esp_err_to_name(err));
 	}else{
@@ -151,7 +151,7 @@ void set_form_flash_locwifi(form_locwifi form){
 
 	esp_err_t err;
 	nvs_handle_t ctrl_locwifi;
-	err = nvs_open("storage",NVS_READWRITE,&ctrl_locwifi);
+	err = nvs_open("locwifi",NVS_READWRITE,&ctrl_locwifi);
 	if (err != ESP_OK) {
 		printf("Error (%s) opening NVS handle!\n", esp_err_to_name(err));
 	}else{
@@ -172,7 +172,7 @@ void set_form_flash_mqtt(form_mqtt form){
 
 	esp_err_t err;
 	nvs_handle_t ctrl_mqtt;
-	err = nvs_open("storage",NVS_READWRITE,&ctrl_mqtt);
+	err = nvs_open("mqtt",NVS_READWRITE,&ctrl_mqtt);
 	if (err != ESP_OK) {
 		printf("Error (%s) opening NVS handle!\n", esp_err_to_name(err));
 	}else{
@@ -228,7 +228,7 @@ void get_form_flash_mesh(form_mesh *form){
 	esp_err_t err;
 	nvs_handle_t ctrl_mesh;
 
-	err = nvs_open("storage",NVS_READWRITE,&ctrl_mesh);
+	err = nvs_open("mesh",NVS_READWRITE,&ctrl_mesh);
 	if (err != ESP_OK) {
 		printf("Error (%s) opening NVS handle!\n", esp_err_to_name(err));
 	}else{
@@ -408,7 +408,7 @@ void get_form_flash_login(form_login *form){
 	char userdef[] = "admin";
 	char passdef[] = "admin";
 
-	err = nvs_open("storage",NVS_READONLY,&ctrl_login);
+	err = nvs_open("login",NVS_READONLY,&ctrl_login);
 		if (err != ESP_OK) {
 			printf("Error (%s) opening NVS handle!\n", esp_err_to_name(err));
 		}else{
@@ -456,7 +456,7 @@ void get_form_flash_modbus(form_modbus *form){
 	nvs_handle_t ctrl_modbus;
 	char deftype[] = "enlace";
 
-	err = nvs_open("storage",NVS_READONLY,&ctrl_modbus);
+	err = nvs_open("modbus",NVS_READONLY,&ctrl_modbus);
 	if (err != ESP_OK) {
 		printf("Error (%s) opening NVS handle!\n", esp_err_to_name(err));
 	}else{
@@ -541,7 +541,7 @@ void get_form_flash_locwifi(form_locwifi *form){
 	esp_err_t err;
 	nvs_handle_t ctrl_locwifi;
 
-	err = nvs_open("storage",NVS_READONLY,&ctrl_locwifi);
+	err = nvs_open("locwifi",NVS_READONLY,&ctrl_locwifi);
 		if (err != ESP_OK) {
 			printf("Error (%s) opening NVS handle!\n", esp_err_to_name(err));
 		}else{
@@ -589,7 +589,7 @@ void get_form_flash_mqtt(form_mqtt *form){
 	nvs_handle_t ctrl_mqtt;
 
 
-	err = nvs_open("storage",NVS_READONLY,&ctrl_mqtt);
+	err = nvs_open("mqtt",NVS_READONLY,&ctrl_mqtt);
 		if (err != ESP_OK) {
 			printf("Error (%s) opening NVS handle!\n", esp_err_to_name(err));
 		}else{
@@ -1540,10 +1540,12 @@ err:
 
 // Tarea RTOS para el servidor --------------------------------------------------//
 void ServidorHTTP(){
+	show_ram_status("Antes del web server");
 	esp_wifi_restore();
 	iniciar_wifi();
 	initialise_mdns();
 	ESP_ERROR_CHECK(init_fs());
     ESP_ERROR_CHECK(start_rest_server(CONFIG_EXAMPLE_WEB_MOUNT_POINT));
+	show_ram_status("Despues del web server");
 }
 /*********************************************************************************/

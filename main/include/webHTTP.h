@@ -20,6 +20,7 @@
 void ServidorHTTP();
 #endif
 
+// ESTRUCTURAS DE DATOS PARA FORMULARIOS
 typedef struct form_locwifi{
 	char ssid[20];
 	char password[20];
@@ -63,7 +64,7 @@ struct form_home{
 
 typedef struct form_mqtt{
 	uint8_t advance;
-	char uri[50];
+	char uri[30];
 	char ip[20];
 	uint16_t port;
 	char pubtopic[20];
@@ -72,8 +73,6 @@ typedef struct form_mqtt{
 	char password[20];
 	uint8_t app_layer;
 }form_mqtt;
-
-TaskHandle_t http_socket;
 
 typedef enum{
 	rs485 = 0,
@@ -113,9 +112,19 @@ typedef union{
 
 tipo_de_medidor str2enum (const char *str);
 
+// MANEJADOR DE HTTP SOCKET
+TaskHandle_t http_socket;
+
+// FUNCIONES SET
 void set_form_flash_mesh(form_mesh form);
 void set_form_flash_modbus(form_modbus form);
+
+//FUNCIONES GET
 void get_form_flash_mesh(form_mesh *form);
+void get_form_flash_locwifi(form_locwifi *form);
+void get_form_flash_modbus(form_modbus *form);
+
+//FUNCIONES FIIL
 bool fill_form_mesh(char * p, form_mesh *form);
 bool fill_form_modbus(char *p,form_modbus *form);
 
