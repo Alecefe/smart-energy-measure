@@ -72,7 +72,12 @@
           <input type="password" class="form-control shadow-sm" id="net-wifi-pass" aria-describedby="mesh-password-help" placeholder="Your password" required>
         </div>
 
-        <button type="submit" class="mt-2 btn btn-primary btn-md btn-block" id="submit-loc-wifi">Submit</button>
+        <div class="custom-control custom-checkbox">
+          <input type="checkbox" class="custom-control-input" id="customCheck1">
+          <label class="custom-control-label" for="customCheck1" onclick="showpass()"><small>Show password</small></label>
+        </div>
+
+        <button type="submit" class="mt-4 btn btn-primary btn-md btn-block" id="submit-loc-wifi">Submit</button>
         
       </fieldset>
     </form>
@@ -80,4 +85,16 @@
 </body>
 
 <script src="js/net-loc-wifi.js"></script>
+
+<script>
+  function showpass() {
+    var x = document.getElementById("net-wifi-pass");
+    if (x.type === "password") {
+      x.type = "text";
+    } else {
+      x.type = "password";
+    }
+  }
+  </script>
+
 </html>

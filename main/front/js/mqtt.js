@@ -48,7 +48,7 @@ function mqtt_validar(evt){
 
     evt.preventDefault();
 
-    let mqtt_values = {advance:null,uri:null,ip:null,port:null,topic:null,type:null,user:null,password:null,app_layer:null,topic:null};
+    let mqtt_values = {advance:null,uri:null,ip:null,port:null,topic:null,type:null,user:null,password:null,app_layer:null};
 
     mqtt_values.advance = mqtt_configuration.checked;
     mqtt_values.port = document.getElementById('mqtt_port').value;

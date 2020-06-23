@@ -59,23 +59,23 @@ void set_form_flash_mesh(form_mesh form){
 		printf("Error (%s) opening NVS handle!\n\r", esp_err_to_name(err));
 	}else{
 
-		ESP_LOGI("FROM_NVS",MACSTR,MAC2STR(form.mesh_id));
+		ESP_LOGI("SET_MESH",MACSTR,MAC2STR(form.mesh_id));
 		err=nvs_set_blob(ctrl_mesh,"meshid",form.mesh_id,sizeof(form.mesh_id));
 		if (err != ESP_OK) {printf("Error (%s) setting in flash mesh id!\n\r", esp_err_to_name(err));}
 
-		ESP_LOGI("FROM_NVS","%s",form.meshappass);
+		ESP_LOGI("SET_MESH","%s",form.meshappass);
 		err=nvs_set_str(ctrl_mesh,"meshpass",form.meshappass);
 		if (err != ESP_OK) {printf("Error (%s) setting in flash mesh password!\n\r", esp_err_to_name(err));}
 
-		ESP_LOGI("FROM_NVS","%d",form.max_layer);
+		ESP_LOGI("SET_MESH","%d",form.max_layer);
 		err=nvs_set_u8(ctrl_mesh,"max_layer",form.max_layer);
 		if (err != ESP_OK) {printf("Error (%s) setting in flash max layer!\n\r", esp_err_to_name(err));}
 
-		ESP_LOGI("FROM_NVS","%d",form.max_sta);
+		ESP_LOGI("SET_MESH","%d",form.max_sta);
 		err=nvs_set_u8(ctrl_mesh,"max_sta",form.max_sta);
 		if (err != ESP_OK) {printf("Error (%s) setting in flash max STA!\n\r", esp_err_to_name(err));}
 
-		ESP_LOGI("FROM_NVS","%d",form.port);
+		ESP_LOGI("SET_MESH","%d",form.port);
 		err=nvs_set_u16(ctrl_mesh,"port",form.port);
 		if (err != ESP_OK) {printf("Error (%s) setting in flash port!\n\r", esp_err_to_name(err));}
 
@@ -94,28 +94,28 @@ void set_form_flash_modbus(form_modbus form){
 		printf("Error (%s) opening NVS handle!\n", esp_err_to_name(err));
 	}else{
 
-		/*Pub Topic*/
-		ESP_LOGI("FROM_NVS","%s",form.tipo);
-		err = nvs_set_str(ctrl_modbus," mod-tipo",form.tipo);
+		/*Type of meter*/
+		ESP_LOGI("SET_MODBUS","%s",form.tipo);
+		err = nvs_set_str(ctrl_modbus,"tipo",form.tipo);
 		if (err != ESP_OK) {printf("Error (%s) setting in flash meter type!\n\r", esp_err_to_name(err));}
 
 		/*Slave ID*/
-		ESP_LOGI("FROM_NVS","%u",form.slaveid);
+		ESP_LOGI("SET_MODBUS","%u",form.slaveid);
 		nvs_set_u8(ctrl_modbus,"mod-slaveid",form.slaveid);
 		if (err != ESP_OK) {printf("Error (%s) setting in flash slave ID!\n\r", esp_err_to_name(err));}
 
 		/*Conversion Factor*/
-		ESP_LOGI("FROM_NVS","%u",form.conversion);
+		ESP_LOGI("SET_MODBUS","%u",form.conversion);
 		nvs_set_u16(ctrl_modbus,"mod-convfac",form.conversion);
 		if (err != ESP_OK) {printf("Error (%s) setting in flash conv. factor!\n\r", esp_err_to_name(err));}
 
 		/*Baud Rate*/
-		ESP_LOGI("FROM_NVS","%u",form.baud_rate);
+		ESP_LOGI("SET_MODBUS","%u",form.baud_rate);
 		nvs_set_u32(ctrl_modbus,"mod-brate",form.baud_rate);
 		if (err != ESP_OK) {printf("Error (%s) setting in flash Baud Rate!\n\r", esp_err_to_name(err));}
 
 		/*Energía Inicial*/
-		ESP_LOGI("FROM_NVS","%llu",form.energia);
+		ESP_LOGI("SET_MODBUS","%llu",form.energia);
 		nvs_set_u64(ctrl_modbus,"mod-energia",form.energia);
 		if (err != ESP_OK) {printf("Error (%s) setting in flash Initial Energy!\n\r", esp_err_to_name(err));}
 
@@ -135,14 +135,17 @@ void set_form_flash_login(form_login form){
 	}else{
 
 		/*User login*/
-		ESP_LOGI("FROM_NVS","%s",form.user);
+		ESP_LOGI("SET_LOGIN","%s",form.user);
 		err=nvs_set_str(ctrl_login,"log-user",form.user);
 		if (err != ESP_OK) {printf("Error (%s) setting in flash user login!\n\r", esp_err_to_name(err));}
 
 		/*User password*/
-		ESP_LOGI("FROM_NVS","%s",form.password);
-		err=nvs_set_str(ctrl_login,"log-user",form.password);
+		ESP_LOGI("SET_LOGIN","%s",form.password);
+		err=nvs_set_str(ctrl_login,"log-pass",form.password);
 		if (err != ESP_OK) {printf("Error (%s) setting in flash user password!\n\r", esp_err_to_name(err));}
+
+		err = nvs_commit(ctrl_login);
+		if (err != ESP_OK){ESP_LOGW("NVS_COMMIT","Error(%s)", esp_err_to_name(err));}
 	}
 	nvs_close(ctrl_login);
 }
@@ -156,14 +159,17 @@ void set_form_flash_locwifi(form_locwifi form){
 		printf("Error (%s) opening NVS handle!\n", esp_err_to_name(err));
 	}else{
 		/*SSID*/
-		ESP_LOGI("FROM_NVS","%s",form.ssid);
+		ESP_LOGI("SET_LOCWIFI","%s",form.ssid);
 		err=nvs_set_str(ctrl_locwifi,"wifi-ssid",form.ssid);
 		if (err != ESP_OK) {printf("Error (%s) setting in flash SSID!\n\r", esp_err_to_name(err));}
 
 		/*Password*/
-		ESP_LOGI("FROM_NVS","%s",form.ssid);
-		err=nvs_set_str(ctrl_locwifi,"wifi-pass",form.ssid);
+		ESP_LOGI("SET_LOCWIFI","%s",form.password);
+		err=nvs_set_str(ctrl_locwifi,"wifi-pass",form.password);
 		if (err != ESP_OK) {printf("Error (%s) setting in flash WiFi Pass!\n\r", esp_err_to_name(err));}
+
+		err = nvs_commit(ctrl_locwifi);
+		if (err != ESP_OK){ESP_LOGW("NVS_COMMIT","Error(%s)", esp_err_to_name(err));}
 	}
 	nvs_close(ctrl_locwifi);
 }
@@ -178,44 +184,47 @@ void set_form_flash_mqtt(form_mqtt form){
 	}else{
 
 		/*PORT*/
-		ESP_LOGI("FROM_NVS","%d",form.port);
+		ESP_LOGI("SET_MQTT","%d",form.port);
 		err=nvs_set_u16(ctrl_mqtt,"mqtt-port",form.port);
 		if (err != ESP_OK) {printf("Error (%s) setting in flash MQTT port!\n\r", esp_err_to_name(err));}
 
 		/*Pub Topic*/
-		ESP_LOGI("FROM_NVS","%s",form.pubtopic);
+		ESP_LOGI("SET_MQTT","%s",form.pubtopic);
 		err=nvs_set_str(ctrl_mqtt,"mqtt-top",form.pubtopic);
 		if (err != ESP_OK) {printf("Error (%s) setting in flash MQTT Pub. Topic!\n\r", esp_err_to_name(err));}
 
 		/*Advanced config*/
-		ESP_LOGI("FROM_NVS","%d",form.advance);
+		ESP_LOGI("SET_MQTT","%d",form.advance);
 		err=nvs_set_u8(ctrl_mqtt,"mqtt-ad",form.advance);
 		if (err != ESP_OK) {printf("Error (%s) setting in flash advanced config!\n\r", esp_err_to_name(err));}
 
 		/*URI*/
-		ESP_LOGI("FROM_NVS","%s",form.uri);
+		ESP_LOGI("SET_MQTT","%s",form.uri);
 		err=nvs_set_str(ctrl_mqtt,"mqtt-uri",form.uri);
 		if (err != ESP_OK) {printf("Error (%s) setting in flash URI!\n\r", esp_err_to_name(err));}
 
 		/*Type of broker*/
-		ESP_LOGI("FROM_NVS","%d",form.type);
+		ESP_LOGI("SET_MQTT","%d",form.type);
 		err=nvs_set_u8(ctrl_mqtt,"mqtt-type",form.type);
 		if (err != ESP_OK) {printf("Error (%s) setting in flash Type!\n\r", esp_err_to_name(err));}
 
 		/*App Layer*/
-		ESP_LOGI("FROM_NVS","%d",form.app_layer);
+		ESP_LOGI("SET_MQTT","%d",form.app_layer);
 		err=nvs_set_u8(ctrl_mqtt,"mqtt-app",form.app_layer);
 		if (err != ESP_OK) {printf("Error (%s) setting in flash app layer!\n\r", esp_err_to_name(err));}
 
 		/*MQTT user*/
-		ESP_LOGI("FROM_NVS","%s",form.user);
+		ESP_LOGI("SET_MQTT","%s",form.user);
 		err=nvs_set_str(ctrl_mqtt,"mqtt-user",form.user);
 		if (err != ESP_OK) {printf("Error (%s) setting in flash MQTT User!\n\r", esp_err_to_name(err));}
 
 		/*MQTT pass*/
-		ESP_LOGI("FROM_NVS","%s",form.password);
+		ESP_LOGI("SET_MQTT","%s",form.password);
 		err=nvs_set_str(ctrl_mqtt,"mqtt-pass",form.password);
 		if (err != ESP_OK) {printf("Error (%s) setting in flash MQTT Pass!\n\r", esp_err_to_name(err));}
+
+		err = nvs_commit(ctrl_mqtt);
+		if (err != ESP_OK){ESP_LOGW("NVS_COMMIT","Error(%s)", esp_err_to_name(err));}
 	}
 	nvs_close(ctrl_mqtt);
 }
@@ -460,22 +469,23 @@ void get_form_flash_modbus(form_modbus *form){
 	if (err != ESP_OK) {
 		printf("Error (%s) opening NVS handle!\n", esp_err_to_name(err));
 	}else{
-		err = nvs_get_str(ctrl_modbus,"mod-tipo",NULL,&len);
-		if(err==ESP_OK) {
-			err = nvs_get_str(ctrl_modbus,"mod-tipo",form->tipo,&len);
+		err = nvs_get_str(ctrl_modbus,"tipo",NULL,&len);
+		if(err==ESP_OK){
+			err = nvs_get_str(ctrl_modbus,"tipo",form->tipo,&len);
 			switch(err){
 				case ESP_OK:
 					ESP_LOGI(nvs_tag,"Tipo de medidor en flash: %s",form->tipo);
 				break;
 				case ESP_ERR_NVS_NOT_FOUND:
 					ESP_LOGI(nvs_tag,"Tipo por defecto: enlace");
-					strncpy(form->tipo,deftype,strlen(deftype));
+					strncpy(form->tipo, deftype, strlen(deftype));
 				break;
 				default:
 					printf("Error (%s) opening NVS handle!\n", esp_err_to_name(err));
 				break;
 				}
-			}
+			}else{printf("Error (%s) opening NVS handle!\n", esp_err_to_name(err));}
+
 		/*Energía inicial*/
 		err = nvs_get_u64(ctrl_modbus,"mod-energia",&form->energia);
 		switch(err){
@@ -823,24 +833,32 @@ bool fill_form_modbus(char *p, form_modbus * form){
     ESP_LOGW("FILL MODBUS","Modbus meter type: %s",form->tipo);
 
     /*Baud rate*/
+    if(cJSON_IsNull(cJSON_GetObjectItem(root, "baudrate"))==0){
     uint32_t aux_baud_rate = (uint32_t) strtoul(cJSON_GetObjectItem(root, "baudrate")->valuestring,&eptr,10);
     if(aux_baud_rate>=1 && aux_baud_rate<=19200){form->baud_rate = aux_baud_rate;}else{return false;}
     ESP_LOGW("FILL MODBUS","Baud rate: %u", form->baud_rate);
+    }
 
     /*Conversion factor*/
+    if(cJSON_IsNull(cJSON_GetObjectItem(root, "convfac"))==0){
     uint16_t aux_conversion = (uint16_t) strtoul(cJSON_GetObjectItem(root, "convfac")->valuestring,&eptr,10);
     if(aux_conversion>=1){form->conversion = aux_conversion;}else{return false;}
     ESP_LOGW("FILL MODBUS","Conversion Factor: %u", form->conversion);
+    }
 
     /*Energia inicial*/
+    if(cJSON_IsNull(cJSON_GetObjectItem(root, "iniene"))==0){
     uint64_t aux_iniene = (uint64_t) strtoul(cJSON_GetObjectItem(root, "iniene")->valuestring,&eptr,10);
     if(aux_iniene>=0){form->energia = aux_iniene;}else{return false;}
     ESP_LOGW("FILL MODBUS","Energia inicial: %llu", form->energia);
+    }
 
     /*Slave ID*/
+    if(cJSON_IsNull(cJSON_GetObjectItem(root, "slaveid"))==0){
     uint8_t aux_slaveid = (uint8_t) strtoul(cJSON_GetObjectItem(root, "slaveid")->valuestring,&eptr,10);
     if(aux_slaveid>=1 && aux_slaveid<=254){form->slaveid = aux_slaveid;}else{return false;}
     ESP_LOGW("FILL MODBUS","Energia inicial: %u", form->slaveid);
+    }
 
 	cJSON_Delete(root);
     return true;

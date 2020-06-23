@@ -119,6 +119,10 @@
             <div class="form-group no_advance private_mqtt">
               <label for="mqtt-password">Password</label>
               <input type="password" class="form-control shadow-sm" id="mqtt-password" aria-describedby="mesh-password-help" >
+              <div class="custom-control custom-checkbox">
+                <input type="checkbox" class="custom-control-input" id="customCheck1">
+                <label class="custom-control-label m-2" for="customCheck1" onclick="showpass()"><small>Show password</small></label>
+              </div>
               <small class="form-text text-muted" id="mesh-password-help">Broker Password</small>
             </div>
 
@@ -147,4 +151,14 @@
 
 </body>
 <script src="js/mqtt.js"></script>
+<script>
+  function showpass() {
+    var x = document.getElementById("mqtt-password");
+    if (x.type === "password") {
+      x.type = "text";
+    } else {
+      x.type = "password";
+    }
+  }
+  </script>
 </html>

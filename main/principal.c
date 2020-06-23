@@ -31,6 +31,7 @@ void app_main(){
 	tipo_de_medidor tipo;
 
     /**************** PROGRAMA PRINCIPAL ********************************************************/
+	ESP_LOGE("DEBUG","%s %d",form_modbus.tipo,strlen(form_modbus.tipo));
 	tipo = str2enum(form_modbus.tipo);
 
 	if(gpio_get_level(PIN_CONFIG_1)==0){

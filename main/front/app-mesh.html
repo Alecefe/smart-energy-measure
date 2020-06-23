@@ -70,8 +70,13 @@
         <div class="form-group">
           <label for="mesh-password">Mesh Password</label>
           <input type="password" class="form-control shadow-sm" id="mesh-password" aria-describedby="mesh-password-help" placeholder="Your password" >
+          <div class="custom-control custom-checkbox">
+            <input type="checkbox" class="custom-control-input" id="customCheck1">
+            <label class="custom-control-label m-2" for="customCheck1" onclick="showpass()"><small>Show password</small></label>
+          </div>
           <small class="form-text text-muted" id="mesh-password-help">Device's password for mesh Network. <br> At least 8 maximun 15 characters.</small>
         </div>
+
         <div class="form-group">
           <label for="max-layer">Maximum Layers</label>
           <input type="number" class="form-control shadow-sm"id="max-layer" min="1" max="25" aria-describedby="max-layer-help" placeholder="Layers" >
@@ -94,4 +99,14 @@
   </div>
 </body>
 <script src="js/mesh.js"></script>
+<script>
+  function showpass() {
+    var x = document.getElementById("mesh-password");
+    if (x.type === "password") {
+      x.type = "text";
+    } else {
+      x.type = "password";
+    }
+  }
+  </script>
 </html>
