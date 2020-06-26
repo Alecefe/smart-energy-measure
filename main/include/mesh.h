@@ -13,6 +13,7 @@
 #include "driver/timer.h"
 #include "math.h"
 #include "mdns.h"
+#include "ram-heap.h"
 
 #define PULSOS 0
 #define SALVAR 22

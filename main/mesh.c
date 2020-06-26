@@ -831,42 +831,50 @@ void mesh_init(form_mesh form_mesh, form_locwifi form_locwifi, form_modbus form_
 
     /*  tcpip initialization */
     tcpip_adapter_init();
+
     /* for mesh
      * stop DHCP server on softAP interface by default
      * stop DHCP client on station interface by default
      * */
     tcpip_adapter_dhcps_stop(TCPIP_ADAPTER_IF_AP);
     tcpip_adapter_dhcpc_stop(TCPIP_ADAPTER_IF_STA);
-	/*  event initialization */
+
+    /*  event initialization */
     esp_event_loop_create_default();
-	/*  wifi initialization */
+
+    /*  wifi initialization */
 	wifi_init_config_t config = WIFI_INIT_CONFIG_DEFAULT();
-	esp_wifi_init(&config);
-	esp_event_handler_register(IP_EVENT, IP_EVENT_STA_GOT_IP, &ip_event_handler, NULL);
-	esp_wifi_set_mode(WIFI_MODE_STA);
-	esp_wifi_set_storage(WIFI_STORAGE_FLASH);
-	esp_wifi_set_ps(WIFI_PS_NONE);
-	esp_mesh_set_6m_rate(false);
-	esp_wifi_start();
+	ESP_ERROR_CHECK(esp_wifi_init(&config));
+	ESP_ERROR_CHECK(esp_event_handler_register(IP_EVENT, IP_EVENT_STA_GOT_IP, &ip_event_handler, NULL));
+	ESP_ERROR_CHECK(esp_wifi_set_mode(WIFI_MODE_STA));
+	ESP_ERROR_CHECK(esp_wifi_set_storage(WIFI_STORAGE_RAM));
+	ESP_ERROR_CHECK(esp_wifi_set_ps(WIFI_PS_NONE));
+	ESP_ERROR_CHECK(esp_mesh_set_6m_rate(false));
+	ESP_ERROR_CHECK(esp_wifi_start());
+
 	/*  mesh initialization */
-	esp_mesh_init();
-	esp_event_handler_register(MESH_EVENT, ESP_EVENT_ANY_ID, &mesh_event_handler, NULL);
-	esp_mesh_set_max_layer(form_mesh.max_layer);
-	esp_mesh_set_vote_percentage(1);
-	esp_mesh_set_ap_assoc_expire(10);
+	ESP_ERROR_CHECK(esp_mesh_init());
+	ESP_ERROR_CHECK(esp_event_handler_register(MESH_EVENT, ESP_EVENT_ANY_ID, &mesh_event_handler, NULL));
+	ESP_ERROR_CHECK(esp_mesh_set_max_layer(form_mesh.max_layer));
+	ESP_ERROR_CHECK(esp_mesh_set_vote_percentage(1));
+	ESP_ERROR_CHECK(esp_mesh_set_ap_assoc_expire(10));
 	mesh_cfg_t cfg = MESH_INIT_CONFIG_DEFAULT();
+
 	/* mesh ID */
 	memcpy((uint8_t *) &cfg.mesh_id, form_mesh.mesh_id, 6);
+
 	/* router */
 	cfg.channel = CONFIG_MESH_CHANNEL;
 	cfg.router.ssid_len = strlen(form_locwifi.ssid);
 	memcpy((uint8_t *) &cfg.router.ssid, form_locwifi.ssid, cfg.router.ssid_len);
 	memcpy((uint8_t *) &cfg.router.password, form_locwifi.password,strlen(form_locwifi.password));
+
 	/* mesh softAP */
-	esp_mesh_set_ap_authmode(CONFIG_MESH_AP_AUTHMODE);
+	ESP_ERROR_CHECK(esp_mesh_set_ap_authmode(CONFIG_MESH_AP_AUTHMODE));
 	cfg.mesh_ap.max_connection = form_mesh.max_sta;
 	memcpy((uint8_t *) &cfg.mesh_ap.password, form_mesh.meshappass,strlen(form_mesh.meshappass));
-	esp_mesh_set_config(&cfg);
+	ESP_ERROR_CHECK(esp_mesh_set_config(&cfg));
+
 	/* mesh start */
-	esp_mesh_start();
+	ESP_ERROR_CHECK(esp_mesh_start());
 }
