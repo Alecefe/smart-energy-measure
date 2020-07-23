@@ -107,12 +107,18 @@ void config_gpio_pulsos(tipo_de_medidor tipo){
 
 void esp_mesh_tx_to_ext(void *arg){
 
+	/*
+	 * Recibe la trama proveniente del nodo solicitado en la red mesh y
+	 * Envía la trama mediante el socket tcp creado en tcp_server_task
+	 *
+	 */
+
 	mesh_addr_t from;
 	mesh_data_t data;
 	data.data = rx_buf;
 	data.size = sizeof(rx_buf);
 	data.proto = MESH_PROTO_BIN;
-	int flag = 0;
+	int flag = 0, sendControl;
 	esp_err_t error;
 	char trama[tamBUFFER];
 
@@ -127,7 +133,10 @@ void esp_mesh_tx_to_ext(void *arg){
 			for(int i = 0; i<len.Val;i++){
 				printf("trama[%d] = %02x\r\n",i,trama[i]);
 			}
-			send(men,trama,len.Val,0);
+			sendControl = send(men,trama,len.Val,0);
+			if(sendControl<0 || sendControl != len.Val){
+				ESP_LOGE("Tx to Ext", "Error in send");
+			}
 		}
 }
 	ESP_LOGE(MESH_TAG,"Se elimino tarea TX EXT");
@@ -136,6 +145,10 @@ void esp_mesh_tx_to_ext(void *arg){
 
 static void tcp_server_task(void *pvParameters)
 {
+	/*
+	 *	Tarea que maneja el servidor TCP, por aquí se realizan conexiones con redes externas
+	 */
+
     char rx_buffer[128];
     char addr_str[128];
     int addr_family;
@@ -263,6 +276,11 @@ static void tcp_server_task(void *pvParameters)
 }
 
 void esp_mesh_p2p_tx_main(void *Pa){
+
+	/*
+	 * Tarea para repartir el mensaje recibido en el servidor por Broadcast de la red Mesh
+	 */
+
 	esp_err_t err;
     mesh_data_t data;
     char mensaje2[tamBUFFER]="";
@@ -429,8 +447,433 @@ void bus_rs485(void *arg){
 
 }
 
-/*Tarea de comunicacion P2P con el sistema*/
+/****************************/
+/**** Medidor de pulsos *****/
+/****************************/
 
+// METODOS
+
+esp_err_t guarda_cuenta_pulsos(char * partition_name, char * page_namespace, char * entry_key, int32_t * Pulsos){
+
+	nvs_handle_t my_handle;
+
+	//Abriendo la página variable
+	esp_err_t err = nvs_open_from_partition(partition_name, page_namespace, NVS_READWRITE, &my_handle);
+    if (err != ESP_OK) return err;
+	//Write
+	err = nvs_set_i32(my_handle, entry_key , *Pulsos);
+    // Commit
+    err = nvs_commit(my_handle);
+    if (err != ESP_OK) return err;
+    // Close
+    nvs_close(my_handle);
+
+	return ESP_OK;
+}
+
+esp_err_t activa_entrada(char* partition_name, char* page_namespace, char** entry_key, int32_t* actual_entry_index, int32_t* Pulsos){
+
+	nvs_handle_t my_handle;
+
+	free(*entry_key);
+    if(asprintf(entry_key,"e%d", *actual_entry_index)<0){ //Aquí se crea el keyvalue
+    	free(*entry_key);
+    	return ESP_FAIL;
+    }
+
+    //Abriendo la página variable
+	esp_err_t err = nvs_open_from_partition(partition_name , page_namespace, NVS_READWRITE, &my_handle);
+    if (err != ESP_OK) return err;
+	//Write
+	err = nvs_set_i32(my_handle, *entry_key , *Pulsos);
+    // Commit
+    err = nvs_commit(my_handle);
+    if (err != ESP_OK) return err;
+    // Close
+    nvs_close(my_handle);
+
+	return ESP_OK;
+}
+
+esp_err_t abrir_pv(char* partition_name, char** page_namespace, char**entry_key,
+							 int32_t* actual_pv_counter, int32_t* actual_entry_index, int32_t* Pulsos){
+
+	nvs_handle_t my_handle;
+
+	esp_err_t err = nvs_open_from_partition(partition_name, STORAGE_NAMESPACE, NVS_READWRITE, &my_handle);
+	if (err != ESP_OK) return err;
+	// Write
+	nvs_set_i32(my_handle, "pf", *actual_pv_counter);
+	if (err != ESP_OK && err != ESP_ERR_NVS_NOT_FOUND) return err;
+	// Commit
+	err = nvs_commit(my_handle);
+	if (err != ESP_OK) return err;
+	// Close
+	nvs_close(my_handle);
+
+	free(*page_namespace);
+	if(asprintf(page_namespace,"pv%d",*actual_pv_counter)<0){ //Aquí se crea el namespace para abrir la página
+		free(*page_namespace);
+		return ESP_FAIL;
+	}
+
+	activa_entrada(partition_name, *page_namespace, entry_key, actual_entry_index, Pulsos);
+
+	return ESP_OK;
+}
+
+esp_err_t leer_contador_pf(char** pname, char** pvActual ,int32_t* ContadorPaginaFija)
+{
+	//Esta función lee el contador desde la pagina fija por defecto llamada "storage", y se retorna a la ejecución del programa
+
+    nvs_handle_t my_handle;
+    esp_err_t err;
+
+    ESP_LOGW("DEBUG LCPF","%s",*pname);
+
+	//Open
+	err = nvs_open_from_partition(*pname,"storage", NVS_READWRITE, &my_handle);
+    if (err != ESP_OK) return err;
+
+    // Read
+    err = nvs_get_i32(my_handle, "pf", ContadorPaginaFija);
+    if (err != ESP_OK && err != ESP_ERR_NVS_NOT_FOUND) return err;
+    else if (err == ESP_ERR_NVS_NOT_FOUND) {
+    	*ContadorPaginaFija = 1; // Valor por defecto en lugar de no estar asignado
+
+    	//Write
+    	err = nvs_set_i32(my_handle, "pf", *ContadorPaginaFija);
+
+        // Commit
+        err = nvs_commit(my_handle);
+        if (err != ESP_OK) return err;
+    }
+
+    // Close
+    nvs_close(my_handle);
+    if(asprintf(pvActual,"pv%d",*ContadorPaginaFija)<0){ //Aquí se crea el namespace para abrir la página
+    	free(pvActual);
+    	return ESP_FAIL;
+    }
+    return ESP_OK;
+}
+
+esp_err_t leer_pagina_variable(char** pname, char** pvActual, int32_t* ContadorEntradaActual ,char** regActualPaginaVariable ,int32_t* valorEntradaActual)
+{
+	/*	*** Leer_pagina_variable ***
+	 *	Esta función lee la pagina variable referenciada por leer_contador_pf() para encontrar la entrada más reciente escrita y su valor.
+	 *
+	 *	Entradas:
+	 *		pvActual: Espacio de memoria >= sizeof(char)*5 para guardar el namespace de la página actual
+	 *		regActualPaginaVariable: Espacio de memoria >= sizeof(char)*5 para guardar el keyvalue de la entrada más reciente
+	 *		ContadorEntradaActual,valorEntradaActual: Punteros para ser rellenados
+	 *
+	 *	Retorna:
+	 *		ContadorEntradaActual: Número que coincide con el regActualPaginaVariable pero de naturaleza int32, permite construir el namespace
+	 *		o modificarlo en otras funciones de ser necesario
+	 *		regActualPaginaVariable: Keyvalue de la entrada más reciente
+	 *		valorEntradaActual: valor guardado en la entrada más reciente, representa el último conteó de pulsos registrado
+	 */
+
+    nvs_handle_t my_handle;
+    int32_t entradasEnPv = 0;
+
+    //Buscando en toda la memoria
+     nvs_iterator_t it = nvs_entry_find(*pname, *pvActual, NVS_TYPE_ANY);
+     while (it != NULL) {
+    	 	 entradasEnPv++;
+             nvs_entry_info_t info;
+             nvs_entry_info(it, &info);
+             it = nvs_entry_next(it);
+             printf("key '%s', type '%d' \n", info.key, info.type);
+    };
+    nvs_release_iterator(it);
+
+
+    if(entradasEnPv == 0) entradasEnPv = 1; //En caso de no encontrar nada en la página actual se asigna 1 para crear la entrada e1.
+
+    *ContadorEntradaActual = entradasEnPv;
+
+    // Creando el key del último registro encontrado
+    if(asprintf(regActualPaginaVariable,"e%d", entradasEnPv)<0){
+    	free(regActualPaginaVariable);
+    	return ESP_FAIL;
+    }
+
+
+    //Abriendo la página variable
+	esp_err_t err = nvs_open_from_partition(*pname, *pvActual, NVS_READWRITE, &my_handle);
+    if (err != ESP_OK) return err;
+
+    // Leyendo el último registro encontrado
+    err = nvs_get_i32(my_handle, *regActualPaginaVariable, valorEntradaActual);
+    if (err != ESP_OK && err != ESP_ERR_NVS_NOT_FOUND) return err;
+    else if (err == ESP_ERR_NVS_NOT_FOUND) {
+    	*valorEntradaActual = 0; //Valor por defecto en lugar de no estar asignado
+    	//Write
+    	err = nvs_set_i32(my_handle, *regActualPaginaVariable , *valorEntradaActual);
+        // Commit
+        err = nvs_commit(my_handle);
+        if (err != ESP_OK) return err;
+    }
+    // Close
+    nvs_close(my_handle);
+
+    ESP_LOGI("PV Last entry","%d",*valorEntradaActual);
+    if(*valorEntradaActual>50000){
+    	return ESP_FAIL;
+    }
+    return ESP_OK;
+}
+
+esp_err_t change_to_next_partition(char** pname, uint8_t * partition_number){
+
+	nvs_handle_t my_handle;
+	esp_err_t err;
+	char* aux;
+
+	ESP_LOGI("PARTICION ACTUAL","%s %d", *pname, *partition_number);
+
+	//Abriendo particion y levantando la bandera
+	err = nvs_open_from_partition(*pname, "storage", NVS_READWRITE, &my_handle);
+	if (err != ESP_OK) {
+		ESP_LOGE("NVS","ERROR IN NVS_OPEN");
+		return ESP_FAIL;
+	}
+	else{
+	err = nvs_set_u8(my_handle, "finished", 1);
+	if (err != ESP_OK && err != ESP_ERR_NVS_NOT_FOUND) ESP_LOGE("NVS","ERROR IN GET Finished Flag");
+	err = nvs_commit(my_handle);
+	if (err != ESP_OK) ESP_LOGE("NVS","ERROR IN COMMIT");
+	}
+	// Close
+	nvs_close(my_handle);
+
+	ESP_LOGI("PARTICION ACTUAL","DEBUG 0");
+
+	free(*pname);
+
+	ESP_LOGI("PARTICION ACTUAL","DEBUG 1");
+
+	if(*partition_number<=3){
+
+		//Cerrando la particion anterior
+		if(asprintf(&aux ,"app%d", *partition_number-1)<0){
+					free(aux);
+					ESP_LOGE("ROTAR_NVS","Nombre de particion no fue creado");
+		}
+		printf("%s", aux);
+		err = nvs_flash_deinit_partition(aux);
+		if(err != ESP_OK) ESP_LOGE("CNP", "ERROR (%s) IN DEINIT", esp_err_to_name(err));
+		else free(aux);
+
+		//Inicializando la nueva partición
+		if(asprintf(pname ,"app%u", *partition_number)<0){
+					free(*pname);
+					ESP_LOGE("ROTAR_NVS","Nombre de particion no fue creado");
+		}
+		ESP_LOGW("CNP","Partition changed to %s",*pname);
+		nvs_flash_init_partition(*pname);
+
+		ESP_LOGI("PARTICION ACTUAL","DEBUG 2 %s", *pname);
+
+		//Llenando particion
+		esp_err_t err = nvs_open_from_partition(*pname, "storage", NVS_READWRITE, &my_handle);
+		if (err != ESP_OK) ESP_LOGE("NVS","ERROR IN NVS_OPEN");
+//		free(*pname);
+
+		//Colocando la bandera de llenado en 0
+		err = nvs_set_u8(my_handle, "finished", 0);
+		if (err != ESP_OK) ESP_LOGE("NVS","ERROR IN SET");
+		err = nvs_commit(my_handle);
+		if (err != ESP_OK) ESP_LOGE("NVS","ERROR IN COMMIT");
+
+		//Get del número de la partición
+		err = nvs_get_u8(my_handle, "pnumber", partition_number);
+		if (err != ESP_OK && err != ESP_ERR_NVS_NOT_FOUND) ESP_LOGE("NVS","ERROR IN GET");
+		else if (err == ESP_ERR_NVS_NOT_FOUND) {
+			err = nvs_set_u8(my_handle, "pnumber", *partition_number);
+			if (err != ESP_OK) ESP_LOGE("NVS","ERROR IN SET");
+			err = nvs_commit(my_handle);
+			if (err != ESP_OK) ESP_LOGE("NVS","ERROR IN COMMIT");
+		}
+		// Close
+		nvs_close(my_handle);
+		return ESP_OK;
+	}else{
+		ESP_LOGE("APP", "All partitions full");
+		return ESP_FAIL;
+	}
+
+}
+
+esp_err_t levantar_bandera(char* pname){
+	nvs_handle_t my_handle;
+	esp_err_t err;
+
+	//Abriendo particion y levantando la bandera
+	err = nvs_open_from_partition(pname, "storage", NVS_READWRITE, &my_handle);
+	if (err != ESP_OK) {
+		ESP_LOGE("NVS","ERROR IN NVS_OPEN");
+		return ESP_FAIL;
+	}
+	else{
+	err = nvs_set_u8(my_handle, "finished", 1);
+	if (err != ESP_OK && err != ESP_ERR_NVS_NOT_FOUND) ESP_LOGE("NVS","ERROR IN GET Finished Flag");
+	err = nvs_commit(my_handle);
+	if (err != ESP_OK) ESP_LOGE("NVS","ERROR IN COMMIT");
+	}
+	// Close
+	nvs_close(my_handle);
+
+	ESP_LOGI("PARTICION ACTUAL","DEBUG 1");
+
+	return ESP_OK;
+}
+
+esp_err_t contar_pulsos_nvs(char** pname, uint8_t * partition_number, int32_t* ContadorPvActual, int32_t* EntradaActual, int32_t* CuentaPulsos)
+{
+	/*	***Contar_pulsos_nvs***
+	 * 	Conteo de pulsos donde se aumenta la variables de numeración de pulsos, entrada o página segun sea necesario.
+	 */
+
+	char *key, *namespace;
+
+//	namespace = malloc(sizeof("pv##"));
+//	if(*namespace == 0x00) {
+//		free(namespace);
+//		return ESP_FAIL;
+//	}else sprintf(namespace, "pv%d", *ContadorPvActual);
+
+    if(asprintf(&namespace,"pv%d",*ContadorPvActual)<0){ //Aquí se crea el namespace para abrir la página
+    	free(namespace);
+    	return ESP_FAIL;
+    }
+
+    if(asprintf(&key,"e%d",*EntradaActual)<0){ //Aquí se crea el keyvalue
+    	free(key);
+    	return ESP_FAIL;
+    }
+
+	(*CuentaPulsos)++;
+
+	if(*CuentaPulsos <= Limite_pulsos_por_entrada){
+	    guarda_cuenta_pulsos(*pname, namespace, key, CuentaPulsos); //Guarda cada pulso
+
+	}else{
+			(*EntradaActual)++; //Límite de pulsos por entrada superado, cambiando a siguiente entrada
+			if(*EntradaActual <= Limite_entradas_por_pagina){
+				*CuentaPulsos = 1;
+				activa_entrada(*pname, namespace, &key, EntradaActual, CuentaPulsos);
+
+			}else{
+					(*ContadorPvActual)++; //Límite de entradas por pagina superado se debe cambiar de página.
+					if(*ContadorPvActual <= Limite_paginas_por_particion){
+						*EntradaActual = 1;
+						*CuentaPulsos = 1;
+						abrir_pv(*pname, &namespace, &key, ContadorPvActual, EntradaActual, CuentaPulsos);
+
+				}else{
+					if(*partition_number <= max_particiones){
+						*ContadorPvActual = 1;
+						*EntradaActual = 1;
+						*CuentaPulsos = 1;
+					}else ESP_LOGE("PARTITIONS", "All partitions are full");
+				}
+			}
+		}
+	free(key);
+	free(namespace);
+	return ESP_OK;
+}
+
+esp_err_t search_init_partition(uint8_t * pnumber){
+
+	char *pname;
+	nvs_stats_t info;
+	nvs_handle_t my_handle;
+	uint8_t partition_full;
+	esp_err_t err;
+
+	*pnumber = 0;
+
+    for(uint8_t i=1; i<=3; i++){
+
+		if(asprintf(&pname,"app%d", i)<0){
+			free(pname);
+			ESP_LOGE("ROTAR_NVS","Nombre de particion no fue creado");
+			return ESP_FAIL;
+		}
+
+		ESP_LOGE("ROTAR_NVS","%s", pname);
+		err = nvs_flash_init_partition(pname);
+		if (err == ESP_ERR_NVS_NO_FREE_PAGES || err == ESP_ERR_NVS_NEW_VERSION_FOUND|| gpio_get_level(GPIO_NUM_0) == 0) {
+			// NVS partition was truncated and needs to be erased
+			// Retry nvs_flash_init
+			ESP_ERROR_CHECK(nvs_flash_erase_partition("app1"));
+			ESP_ERROR_CHECK(nvs_flash_erase_partition("app2"));
+			ESP_ERROR_CHECK(nvs_flash_erase_partition("app3"));
+			ESP_ERROR_CHECK(nvs_flash_init_partition(pname));
+		}
+
+		err = nvs_get_stats(pname, &info);
+		if( err == ESP_OK ) ESP_LOGE("NVS INFO", "\n Total entries: %d\n Used entries:%d\n Free entries: %d\n Namespace count: %d",
+									  info.total_entries, info.used_entries, info.free_entries, info.namespace_count);
+
+		//Revisando si la partición está llena
+		esp_err_t err = nvs_open_from_partition(pname ,"storage", NVS_READWRITE, &my_handle);
+		if (err != ESP_OK) ESP_LOGE("NVS","ERROR IN NVS_OPEN");
+
+		err = nvs_get_u8(my_handle, "finished", &partition_full);
+		if (err != ESP_OK && err != ESP_ERR_NVS_NOT_FOUND) ESP_LOGE("NVS","ERROR (%s) IN GET", esp_err_to_name(err));
+		else if (err == ESP_ERR_NVS_NOT_FOUND) {
+			 partition_full= 0; //Valor por defecto en lugar de no estar asignado
+			//Write
+			err = nvs_set_u8(my_handle, "finished" , partition_full);
+			// Commit
+			err = nvs_commit(my_handle);
+			if (err != ESP_OK) ESP_LOGE("NVS","ERROR IN COMMIT");
+		}
+
+		//Seteando el número de la partición
+		err = nvs_get_u8(my_handle, "pnumber", pnumber);
+		if (err != ESP_OK && err != ESP_ERR_NVS_NOT_FOUND) ESP_LOGE("NVS","ERROR IN GET");
+		else if (err == ESP_ERR_NVS_NOT_FOUND) {
+			//Write
+			err = nvs_set_u8(my_handle, "pnumber" , i);
+			ESP_LOGW("SIP","Partition number setted first time: %d",i);
+			// Commit
+			err = nvs_commit(my_handle);
+			if (err != ESP_OK) ESP_LOGE("NVS","ERROR IN COMMIT");
+		}else{
+			ESP_LOGW("DEBUG","Partition number setted: %u", *pnumber);
+		}
+
+		// Close
+		nvs_close(my_handle);
+		nvs_flash_deinit_partition(pname);
+		if(*pnumber == i){
+			ESP_LOGI("SIP", "OK");
+		}
+
+		if(partition_full==1){
+			ESP_LOGW("SIP","Partition number %d is full, trying with next", i);
+			if(i==3){
+				ESP_LOGE("SIP","All partitions are full");
+				return ESP_FAIL;
+			}
+		}else if(partition_full==0){
+			ESP_LOGW("SIP", "NVS init can be done in partition app%d",i);
+			*pnumber = i;
+			break;
+		}
+    }
+    return ESP_OK;
+}
+
+// TAREAS
+
+/*Tarea de comunicacion P2P con el sistema*/
 void modbus_tcpip_pulsos(void *arg)
 {
     esp_err_t err;
@@ -480,44 +923,199 @@ void modbus_tcpip_pulsos(void *arg)
     vTaskDelete(NULL);
 }
 
-
 /*Tarea de guardado en flash de pulsos*/
+//
+//void nvs_pulsos(void *arg){
+//
+//	//Variables para conteo de reinicios
+//	nvs_handle_t ctrl_pulsos;
+//	uint64_t pulsos,aux;
+//	// NVS open
+//	esp_err_t err;
+//	aux = energy_ini;
+//	float muestra_energy;
+//	while(!esp_mesh_is_root()){
+//			err = nvs_open("storage", NVS_READWRITE, &ctrl_pulsos);
+//			if (err != ESP_OK) {
+//				printf("Error (%s) abriendo el NVS!\n", esp_err_to_name(err));
+//			}else{
+//				ESP_LOGI(MESH_TAG,"Esperando por evento");
+//				xSemaphoreTake(smfNVS,portMAX_DELAY);
+//				esp_wifi_stop();
+//				ESP_LOGI(MESH_TAG,"Ocurrio evento");
+//				xQueuePeek(Cuenta_de_pulsos,&pulsos,pdMS_TO_TICKS(10));
+//				if(pulsos!=aux && pulsos!=0){
+//					muestra_energy = (float)pulsos/(float)fconv;
+//					err = nvs_set_u64(ctrl_pulsos, "energy", pulsos);
+//					printf((err != ESP_OK) ? "Error pulse counter set!\n" : "Set Done energy %.6f kWh\n Pulsos: %llu\n",muestra_energy,pulsos);
+//					err = nvs_commit(ctrl_pulsos);
+//					printf((err != ESP_OK) ? "Error in pulse counter commit!\n" : "Commit Done\n");
+//					close(ctrl_pulsos);
+//					ESP_LOGI(MESH_TAG,"Stop Timer y Reinicio desde guardado en NVS");
+//					aux = pulsos;
+//				}
+//			}
+//			}
+//			ESP_LOGE(MESH_TAG,"La tarea de guardado en flash de pulsos fue eliminada");
+//			vTaskDelete(NULL);
+//}
 
-void nvs_pulsos(void *arg){
+static void rotar_nvs(void* arg){
 
-	//Variables para conteo de reinicios
-	nvs_handle_t ctrl_pulsos;
-	uint64_t pulsos,aux;
-	// NVS open
-	esp_err_t err;
-	aux = energy_ini;
-	float muestra_energy;
-	while(!esp_mesh_is_root()){
-			err = nvs_open("storage", NVS_READWRITE, &ctrl_pulsos);
-			if (err != ESP_OK) {
-				printf("Error (%s) abriendo el NVS!\n", esp_err_to_name(err));
-			}else{
-				ESP_LOGI(MESH_TAG,"Esperando por evento");
-				xSemaphoreTake(smfNVS,portMAX_DELAY);
-				esp_wifi_stop();
-				ESP_LOGI(MESH_TAG,"Ocurrio evento");
-				xQueuePeek(Cuenta_de_pulsos,&pulsos,pdMS_TO_TICKS(10));
-				if(pulsos!=aux && pulsos!=0){
-					muestra_energy = (float)pulsos/(float)fconv;
-					err = nvs_set_u64(ctrl_pulsos, "energy", pulsos);
-					printf((err != ESP_OK) ? "Error pulse counter set!\n" : "Set Done energy %.6f kWh\n Pulsos: %llu\n",muestra_energy,pulsos);
-					err = nvs_commit(ctrl_pulsos);
-					printf((err != ESP_OK) ? "Error in pulse counter commit!\n" : "Commit Done\n");
-					close(ctrl_pulsos);
-					ESP_LOGI(MESH_TAG,"Stop Timer y Reinicio desde guardado en NVS");
-					aux = pulsos;
+	/* Nomenclatura:
+	 * 	pf: Página fija. Es la pagina que necesita acceder el micro para saber en qué página variable se encuentra.
+	 * 	en ella se encuentra un registro de igual nombre (pf) que contiene el número de paginas variables llenas.
+	 *
+	 * 	pv: Página variable. En esta página se guarda la cuenta de cada pulso registrado. Las páginas variables como su nombre lo indica
+	 * 	van variando a medida que crece la cuenta de pulsos.
+	 *
+	 *	partition: Espacio de memoria flash del micro en la que se encuentra actualmente el último pulso.
+	 */
+
+	uint8_t partition_number;	//Index de partition name (app#)
+
+	int32_t
+		indexPv, 				//Index del namespace (pv#)
+		indexEntradaActual, 	//Index de la entrada activa en la pv (e#)
+		cuentaPulsosPv;			//Cuenta de pulsos en la entrada activa
+
+	uint64_t total_pulsos,		//Total de pulsos: suma de lops pulsos en cada particion, página y entrada utilizada
+			 inicial_pulsos;
+	char
+		*pvActual,				//String para namespace de la página variable
+		*entradaActualpv,		//String para el key de la entrada actual
+		*partition_name;		//String para el nombre de la partición
+
+
+	inicial_pulsos = round( (float)energy_ini* (float)fconv );
+
+
+	esp_err_t err = search_init_partition(&partition_number);
+
+	if(asprintf(&partition_name,"app%d", partition_number)<0){
+			free(partition_name);
+			ESP_LOGE("ROTAR_NVS","Nombre de particion no fue creado");
+	}
+
+	nvs_flash_init_partition(partition_name);
+
+    show_ram_status("Partición iniciada");
+
+	/*
+	 * Leyendo el valor del contador de la pagina fija. Retorna el namespace y el número de pagina variable se encuentran los datos
+	 * más recientes
+	 */
+	err = leer_contador_pf(&partition_name, &pvActual, &indexPv);
+	if(err != ESP_OK) printf("Error (%s) leyendo contador desde la pagina fija!\n", esp_err_to_name(err));
+	ESP_LOGI("LPF","pvActual: %s indexPv: %d", pvActual, indexPv);
+
+	ESP_LOGI("DEBUG","Antes de leer pagina variable");
+
+	/*
+	 * Revisar pagina variable actual y buscar el ultimo registro escrito
+	 */
+	err = leer_pagina_variable(&partition_name, &pvActual, &indexEntradaActual, &entradaActualpv, &cuentaPulsosPv);
+	if(err != ESP_OK) printf("Error (%s) buscando el registro escrito más reciente\n", esp_err_to_name(err));
+	ESP_LOGI("LPV","pvActual: %s indexEntradaActual: %d Entrada actual: %s Cuenta pulsos: %d",
+				pvActual, indexEntradaActual, entradaActualpv, cuentaPulsosPv);
+
+	ESP_LOGI("DEBUG","Antes del while");
+
+	while (!esp_mesh_is_root()) {
+		//Interrupción generada por pulsos
+		//xSemaphoreTake(smfPulso,portMAX_DELAY);
+
+		if (gpio_get_level(GPIO_NUM_0) == 0) {
+			vTaskDelay(500 / portTICK_PERIOD_MS);
+			if(gpio_get_level(GPIO_NUM_0) == 0) {
+
+				/*Si se llegó al límite en una particion*/
+				if(indexPv== Limite_paginas_por_particion && indexEntradaActual == Limite_entradas_por_pagina
+						&& cuentaPulsosPv == Limite_pulsos_por_entrada){
+
+					partition_number++;
+
+					if(partition_number <= max_particiones){
+
+						levantar_bandera(partition_name);
+
+						char * aux;
+						nvs_handle_t my_handle;
+
+						//Cerrando la particion anterior
+						if(asprintf(&aux ,"app%d", partition_number-1)<0){
+									free(aux);
+									ESP_LOGE("ROTAR_NVS","Nombre de particion no fue creado");
+						}
+						ESP_LOGI("DEINIT","%s", aux);
+						err = nvs_flash_deinit_partition(aux);
+						if(err != ESP_OK) ESP_LOGE("CNP", "ERROR (%s) IN DEINIT", esp_err_to_name(err));
+						else free(aux);
+
+						//Inicializando la nueva partición
+						if(asprintf(&partition_name ,"app%u", partition_number)<0){
+									free(partition_name);
+									ESP_LOGE("ROTAR_NVS","Nombre de particion no fue creado");
+						}
+						ESP_LOGW("CNP","Partition changed to %s",partition_name);
+						nvs_flash_init_partition(partition_name);
+
+						ESP_LOGI("PARTICION ACTUAL","DEBUG 2 %s", partition_name);
+
+						//Llenando particion
+						esp_err_t err = nvs_open_from_partition(partition_name, "storage", NVS_READWRITE, &my_handle);
+						if (err != ESP_OK) ESP_LOGE("NVS","ERROR IN NVS_OPEN");
+				//		free(*pname);
+
+						//Colocando la bandera de llenado en 0
+						err = nvs_set_u8(my_handle, "finished", 0);
+						if (err != ESP_OK) ESP_LOGE("NVS","ERROR IN SET");
+						err = nvs_commit(my_handle);
+						if (err != ESP_OK) ESP_LOGE("NVS","ERROR IN COMMIT");
+
+						//Get del número de la partición
+						err = nvs_get_u8(my_handle, "pnumber", &partition_number);
+						if (err != ESP_OK && err != ESP_ERR_NVS_NOT_FOUND) ESP_LOGE("NVS","ERROR IN GET");
+						else if (err == ESP_ERR_NVS_NOT_FOUND) {
+							err = nvs_set_u8(my_handle, "pnumber", partition_number);
+							if (err != ESP_OK) ESP_LOGE("NVS","ERROR IN SET");
+							err = nvs_commit(my_handle);
+							if (err != ESP_OK) ESP_LOGE("NVS","ERROR IN COMMIT");
+						}
+						// Close
+						nvs_close(my_handle);
+					}
 				}
-			}
-			}
-			ESP_LOGE(MESH_TAG,"La tarea de guardado en flash de pulsos fue eliminada");
-			vTaskDelete(NULL);
-}
 
+				if(partition_number <= max_particiones){
+				err = contar_pulsos_nvs(&partition_name, &partition_number, &indexPv, &indexEntradaActual, &cuentaPulsosPv);
+
+				total_pulsos = 	inicial_pulsos+ //Aporte de los pulsos iniciales
+								(partition_number-1)*Limite_paginas_por_particion*Limite_entradas_por_pagina*Limite_pulsos_por_entrada+//Aporte c/u de las particiones
+								(indexPv-1)*Limite_entradas_por_pagina*Limite_pulsos_por_entrada+ //Aporte de las paginas anteriores
+								(indexEntradaActual-1)*Limite_pulsos_por_entrada+ //Aporte de la página actual
+								cuentaPulsosPv;	//Aporte de la entrada actual
+
+				ESP_LOGI("PULSOS","PARTICION: %d PV: %d ENT: %d Pulsos: %d", partition_number ,indexPv, indexEntradaActual, cuentaPulsosPv);
+				ESP_LOGI("TOTAL PULSOS","%llu",total_pulsos);
+
+				//Enviando los pulsos a otra tarea
+				xQueueOverwrite(Cuenta_de_pulsos,&total_pulsos);
+
+				}else ESP_LOGE("APP", "All partitions are full");
+
+				show_ram_status("Por pulsos");
+			}
+		}
+		vTaskDelay(200 / portTICK_PERIOD_MS);
+	}
+
+	free(pvActual);
+	free(entradaActualpv);
+	free(partition_name);
+	ESP_LOGE("RTOS","La tarea NVS-Rotative ha sido eliminada");
+	vTaskDelete(NULL);
+}
 
 /*Tarea del contador de pulsos*/
 
@@ -526,8 +1124,9 @@ void conteo_pulsos (void *arg){
 	uint64_t contador;
 	contador = energy_ini;
 	double muestra_energia;
-	muestra_energia = (float)energy_ini/(float)fconv;
-	printf("Energia: %.6lf\r\n",muestra_energia);
+
+	muestra_energia = (float)energy_ini*(float)fconv;
+	ESP_LOGI("Datos iniciales", "Energia: %.6lf\r\n Pulsos: %d ", (float) energy_ini, (int)muestra_energia);
 
 	while(!esp_mesh_is_root()){
 		xSemaphoreTake(smfPulso,portMAX_DELAY);
@@ -551,9 +1150,9 @@ void mesh_event_handler(void *arg, esp_event_base_t event_base,
 	char rx_child [9] = "Rx_child";
 	char rx_rs485 [9] = "Rx_RS485";
 	char modbus_pulse [11] = "Commun P2P";
-	char count_pulse [10] = "Guardar P";
+	char count_pulse [] = "Rotative NVS";
 	//char timer_pulse [10] = "Timer NVS";
-	char nvs_pulse [8] = "Count P";
+	//char nvs_pulse [8] = "Count P";
     mesh_addr_t id = {0,};
     static uint8_t last_layer = 0;
 
@@ -641,14 +1240,17 @@ void mesh_event_handler(void *arg, esp_event_base_t event_base,
         			if(creador){
         				xTaskCreatePinnedToCore(modbus_tcpip_pulsos,modbus_pulse,3072*2,NULL,5,NULL,0);
         			}
-        			creador = vTaskB(nvs_pulse);
-        			if(creador){
-        				xTaskCreatePinnedToCore(nvs_pulsos,nvs_pulse,3072*2,NULL,5,NULL,1);
-        			}
         			creador = vTaskB(count_pulse);
-        			if(creador){
-        				xTaskCreatePinnedToCore(conteo_pulsos,count_pulse,3072*2,NULL,5,NULL,0);
-        			}
+        			if (creador) xTaskCreatePinnedToCore(rotar_nvs, count_pulse, 4*1024, NULL, 5, NULL, 1);
+
+//        			creador = vTaskB(nvs_pulse);
+//        			if(creador){
+//        				xTaskCreatePinnedToCore(nvs_pulsos,nvs_pulse,3072*2,NULL,5,NULL,1);
+//        			}
+//        			creador = vTaskB(count_pulse);
+//        			if(creador){
+//        				xTaskCreatePinnedToCore(conteo_pulsos,count_pulse,3072*2,NULL,5,NULL,0);
+//        			}
 
         		break;
         		case(chino):
@@ -811,6 +1413,8 @@ void ip_event_handler(void *arg, esp_event_base_t event_base,
 
 void mesh_init(form_mesh form_mesh, form_locwifi form_locwifi, form_modbus form_modbus){
 
+	show_ram_status("Before mesh init");
+	esp_err_t err;
 	fconv = form_modbus.conversion;
 	port = form_mesh.port;
 	tipo = str2enum(form_modbus.tipo);
@@ -846,18 +1450,19 @@ void mesh_init(form_mesh form_mesh, form_locwifi form_locwifi, form_modbus form_
 	wifi_init_config_t config = WIFI_INIT_CONFIG_DEFAULT();
 	ESP_ERROR_CHECK(esp_wifi_init(&config));
 	ESP_ERROR_CHECK(esp_event_handler_register(IP_EVENT, IP_EVENT_STA_GOT_IP, &ip_event_handler, NULL));
-	ESP_ERROR_CHECK(esp_wifi_set_mode(WIFI_MODE_STA));
-	ESP_ERROR_CHECK(esp_wifi_set_storage(WIFI_STORAGE_RAM));
+//	ESP_ERROR_CHECK(esp_wifi_set_mode(WIFI_MODE_APSTA));
+	ESP_ERROR_CHECK(esp_wifi_set_storage(WIFI_STORAGE_FLASH));
 	ESP_ERROR_CHECK(esp_wifi_set_ps(WIFI_PS_NONE));
 	ESP_ERROR_CHECK(esp_mesh_set_6m_rate(false));
-	ESP_ERROR_CHECK(esp_wifi_start());
+	err = esp_wifi_start();
+	ESP_LOGI("WIFI","%s", esp_err_to_name(err));
 
 	/*  mesh initialization */
-	ESP_ERROR_CHECK(esp_mesh_init());
-	ESP_ERROR_CHECK(esp_event_handler_register(MESH_EVENT, ESP_EVENT_ANY_ID, &mesh_event_handler, NULL));
-	ESP_ERROR_CHECK(esp_mesh_set_max_layer(form_mesh.max_layer));
-	ESP_ERROR_CHECK(esp_mesh_set_vote_percentage(1));
-	ESP_ERROR_CHECK(esp_mesh_set_ap_assoc_expire(10));
+	esp_mesh_init();
+	esp_event_handler_register(MESH_EVENT, ESP_EVENT_ANY_ID, &mesh_event_handler, NULL);
+	esp_mesh_set_max_layer(form_mesh.max_layer);
+	esp_mesh_set_vote_percentage(1);
+	esp_mesh_set_ap_assoc_expire(10);
 	mesh_cfg_t cfg = MESH_INIT_CONFIG_DEFAULT();
 
 	/* mesh ID */
@@ -870,11 +1475,12 @@ void mesh_init(form_mesh form_mesh, form_locwifi form_locwifi, form_modbus form_
 	memcpy((uint8_t *) &cfg.router.password, form_locwifi.password,strlen(form_locwifi.password));
 
 	/* mesh softAP */
-	ESP_ERROR_CHECK(esp_mesh_set_ap_authmode(CONFIG_MESH_AP_AUTHMODE));
+	esp_mesh_set_ap_authmode(CONFIG_MESH_AP_AUTHMODE);
 	cfg.mesh_ap.max_connection = form_mesh.max_sta;
 	memcpy((uint8_t *) &cfg.mesh_ap.password, form_mesh.meshappass,strlen(form_mesh.meshappass));
-	ESP_ERROR_CHECK(esp_mesh_set_config(&cfg));
+	esp_mesh_set_config(&cfg);
 
 	/* mesh start */
-	ESP_ERROR_CHECK(esp_mesh_start());
+	esp_mesh_start();
+	show_ram_status("After mesh init");
 }

@@ -15,8 +15,8 @@
 #include "freertos/semphr.h"
 
 // Definiciones de SSID y password -------------------------//
-#define nombreWiFi "ATENITAS"
-#define claveWiFi  "ate12345"
+#define nombreWiFi ""
+#define claveWiFi  ""
 #define ssid_ap "PruebaDeAcceso"
 #define clave_ap "polilla22"
 #define MAX_STA_CONN 10

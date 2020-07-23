@@ -45,6 +45,7 @@ void app_main(){
 		ESP_LOGW(MESH_INIT,"MESH MAX STA = %d",form_mesh.max_sta);
 		ESP_LOGW(MESH_INIT,"MESH PORT = %d",form_mesh.port);
 		ESP_LOGW(MESH_INIT,"Type of Meter: %s",form_modbus.tipo);
+
 		switch(tipo){
 
 		case(rs485):
@@ -67,17 +68,19 @@ void app_main(){
 		default:
 		break;
 		}
-		ESP_ERROR_CHECK(nvs_flash_deinit_partition("nvs"));
-		show_ram_status("Luego de cerrar nvs");
+
 		/**************** INICIALIZACION DE LA FLASH (PARTICION DE APLICACION) *******************/
-	    esp_err_t err = nvs_flash_init_partition("app1");
-	    if (err == ESP_ERR_NVS_NO_FREE_PAGES || err == ESP_ERR_NVS_NEW_VERSION_FOUND) {
-	        // NVS partition was truncated and needs to be erased
-	        // Retry nvs_flash_init
-	        ESP_ERROR_CHECK(nvs_flash_erase_partition("app1"));
-	        err = nvs_flash_init_partition("app1");
-	    }
-	    show_ram_status("Luego de app1");
+//		ESP_ERROR_CHECK(nvs_flash_deinit_partition("nvs"));
+//		show_ram_status("Luego de cerrar nvs");
+//	    esp_err_t err = nvs_flash_init_partition("app1");
+//	    if (err == ESP_ERR_NVS_NO_FREE_PAGES || err == ESP_ERR_NVS_NEW_VERSION_FOUND) {
+//	        // NVS partition was truncated and needs to be erased
+//	        // Retry nvs_flash_init
+//	        ESP_ERROR_CHECK(nvs_flash_erase_partition("app1"));
+//	        err = nvs_flash_init_partition("app1");
+//	    }
+//	    show_ram_status("Luego de app1");
+
 	    /**************** APLICACION MESH *******************/
 	    mesh_init(form_mesh, form_locwifi, form_modbus);
 	}
