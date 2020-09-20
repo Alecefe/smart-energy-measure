@@ -27,10 +27,22 @@ uint32_t baud_rate;
 
 /*Interrupcion de entrada de pulso*/
 
-void IRAM_ATTR interrupcion_pulsos (void* arg)
+void IRAM_ATTR intPulsos (void* arg)
 {
 	xSemaphoreGiveFromISR(smfPulso,NULL);
 }
+
+//static void pruebaGPIO35 (void *arg) {
+//	uint16_t cantidadPulsos = 0;
+//	ESP_LOGI("DEBUG", "Cree la tarea de prueba");
+//	while(true) {
+//		if (xSemaphoreTake( smfPulso, portMAX_DELAY ) == pdTRUE) {
+//			cantidadPulsos++;
+//			ESP_LOGW("Prueba", "%u pulsos", cantidadPulsos);
+//		}
+//	}
+//	vTaskDelete(NULL);
+//}
 
 /*Interrupcion asociada al guardado en flash*/
 
@@ -90,8 +102,8 @@ void config_gpio_pulsos(tipo_de_medidor tipo){
 
 		gpio_pad_select_gpio(PULSOS);   //configuro el BOTON_SALVAR como un pin GPIO
 		gpio_set_direction(PULSOS, GPIO_MODE_DEF_INPUT);    // seleciono el PULSOS como pin de entrada
-		gpio_isr_handler_add(PULSOS, interrupcion_pulsos, NULL); // añado el manejador para el servicio ISR
-		gpio_set_intr_type(PULSOS,GPIO_INTR_NEGEDGE);  // habilito interrupción por flanco descendente (1->0)
+		gpio_isr_handler_add(PULSOS, intPulsos, NULL); // añado el manejador para el servicio ISR
+		gpio_set_intr_type(PULSOS,GPIO_INTR_POSEDGE);  // habilito interrupción por flanco descendente (1->0)
 		//tg0_timer_init(TIMER_0, TEST_WITH_RELOAD, TIMER_INTERVAL0_SEC);
 
 	}else{
@@ -316,6 +328,9 @@ void esp_mesh_p2p_tx_main(void *Pa){
     ESP_LOGE(MESH_TAG,"Se elimino tarea Tx main\r\n");
     vTaskDelete(NULL);
 }
+
+
+
 
 /********* Tareas de un Nodo ************/
 
@@ -1139,6 +1154,9 @@ void conteo_pulsos (void *arg){
 	ESP_LOGE(MESH_TAG,"La tarea de conteo de pulsos fue eliminada");
 	vTaskDelete(NULL);
 }
+
+
+
 
 /********************************/
 /**** Manejadores de eventos ****/

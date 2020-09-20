@@ -15,8 +15,8 @@
 #include "freertos/semphr.h"
 
 // Definiciones de SSID y password -------------------------//
-#define nombreWiFi ""
-#define claveWiFi  ""
+#define nombreWiFi "Las_chismosas_de_planta"
+#define claveWiFi  "alecefe212502"
 #define ssid_ap "PruebaDeAcceso"
 #define clave_ap "polilla22"
 #define MAX_STA_CONN 10

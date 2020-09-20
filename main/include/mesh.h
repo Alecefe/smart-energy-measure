@@ -78,7 +78,7 @@ typedef struct {
 
 
 
-void IRAM_ATTR interrupcion_pulsos (void* arg);
+void IRAM_ATTR interrupcionGPIOPULSOS (void* arg);
 
 void IRAM_ATTR guadado_en_flash(void* arg);
 
