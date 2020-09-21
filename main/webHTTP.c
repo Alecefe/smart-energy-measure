@@ -791,7 +791,7 @@ bool fill_form_mesh(char * p, form_mesh *form){
 
     /*Max Layer*/
     uint8_t aux_max_layer = (uint8_t) strtoul(cJSON_GetObjectItem(root, "maxlayer")->valuestring,&eptr,10);
-    if(aux_max_layer>=10 && aux_max_layer<=25){form->max_layer = aux_max_layer;}else{return false;}
+    if(aux_max_layer>=1 && aux_max_layer<=25){form->max_layer = aux_max_layer;}else{return false;}
     ESP_LOGW("FILL MESH","Layers: %d", form->max_layer);
 
     /*Max sta*/
@@ -872,7 +872,7 @@ bool fill_form_locwifi(char*p, form_locwifi * form){
 
     /*Local SSID*/
     char* aux_ssid = cJSON_GetObjectItem(root, "ssid")->valuestring;
-    if(strlen(aux_ssid)<6||strlen(aux_ssid)>15){
+    if(strlen(aux_ssid)<8||strlen(aux_ssid)>30){
     	printf("SSID no válido");
     	return false;
     }else{ for(int i = 0; i<=strlen(aux_ssid);i++){form->ssid[i]=aux_ssid[i];}}
@@ -880,7 +880,7 @@ bool fill_form_locwifi(char*p, form_locwifi * form){
 
     /*Local password*/
     char* aux_pass = cJSON_GetObjectItem(root, "pass")->valuestring;
-    if(strlen(aux_pass)<6||strlen(aux_pass)>15){
+    if(strlen(aux_ssid)<8||strlen(aux_ssid)>30){
     	printf("Password no válido");
     	return false;
     }else{ for(int i = 0; i<=strlen(aux_pass);i++){form->password[i]=aux_pass[i];}}

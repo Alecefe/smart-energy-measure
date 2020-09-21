@@ -21,100 +21,6 @@ bool creador = true;
 tipo_de_medidor tipo;
 uint32_t baud_rate;
 
-/************************************/
-/**** Medidor de salida a pulsos ****/
-/************************************/
-
-/*Interrupcion de entrada de pulso*/
-
-void IRAM_ATTR intPulsos (void* arg)
-{
-	xSemaphoreGiveFromISR(smfPulso,NULL);
-}
-
-//static void pruebaGPIO35 (void *arg) {
-//	uint16_t cantidadPulsos = 0;
-//	ESP_LOGI("DEBUG", "Cree la tarea de prueba");
-//	while(true) {
-//		if (xSemaphoreTake( smfPulso, portMAX_DELAY ) == pdTRUE) {
-//			cantidadPulsos++;
-//			ESP_LOGW("Prueba", "%u pulsos", cantidadPulsos);
-//		}
-//	}
-//	vTaskDelete(NULL);
-//}
-
-/*Interrupcion asociada al guardado en flash*/
-
-void IRAM_ATTR guadado_en_flash(void* arg)
-{
-	xSemaphoreGiveFromISR(smfNVS,NULL);
-}
-
-/****************************************/
-/**** Configuracion e inicializacion ****/
-/****************************************/
-
-bool vTaskB( char *nombre_tarea )
-  {
-  TaskStatus_t *pxTaskStatusArray;
-  UBaseType_t uxArraySize;
-  uint32_t ulTotalRunTime;
-
-
-
-  // Take a snapshot of the number of tasks in case it changes while this
-  // function is executing.
-  uxArraySize = uxTaskGetNumberOfTasks();
-
-  // Allocate a TaskStatus_t structure for each task.  An array could be
-  // allocated statically at compile time.
-  pxTaskStatusArray = pvPortMalloc( uxArraySize * sizeof( TaskStatus_t ) );
-
-
-   if( pxTaskStatusArray != NULL )
-   {
-      // Generate raw status information about each task.
-	    uxTaskGetSystemState( pxTaskStatusArray, uxArraySize, &ulTotalRunTime );
-       for(int i = 0; i < uxArraySize;i++){
-    	   //ESP_LOGW(MESH_TAG,"Tarea %d %s",i,pxTaskStatusArray[i].pcTaskName);
-    	   if(strcmp(pxTaskStatusArray[i].pcTaskName,nombre_tarea)==0){
-    		   printf("Tarea %s, numero %d ya existe\r\n",pxTaskStatusArray[i].pcTaskName,i);
-    		   return false;
-    	   }
-       }
-   }
-   ESP_LOGW(MESH_TAG,"Creando Tarea: %s",(char *)nombre_tarea);
-   return true;
-}
-
-void config_gpio_pulsos(tipo_de_medidor tipo){
-
-	if(tipo==pulsos){
-		ESP_LOGI(MESH_TAG,"Configurando GPIO para medidor tipo pulsos");
-		//Tipo de interrupcion
-		gpio_install_isr_service(ESP_INTR_FLAG_DEFAULT);// instala el servicio ISR con la configuración por defecto.
-		//Habilitacion de pines e interrupciones
-		gpio_pad_select_gpio(SALVAR);   //configuro el BOTON_SALVAR como un pin GPIO
-		gpio_set_direction(SALVAR, GPIO_MODE_DEF_INPUT);   // seleciono el BOTON_SALVAR como pin de entrada
-		gpio_isr_handler_add(SALVAR, guadado_en_flash, NULL); // añado el manejador para el servicio ISR
-		gpio_set_intr_type(SALVAR,GPIO_INTR_NEGEDGE);  // habilito interrupción por flanco descendente (1->0)
-
-		gpio_pad_select_gpio(PULSOS);   //configuro el BOTON_SALVAR como un pin GPIO
-		gpio_set_direction(PULSOS, GPIO_MODE_DEF_INPUT);    // seleciono el PULSOS como pin de entrada
-		gpio_isr_handler_add(PULSOS, intPulsos, NULL); // añado el manejador para el servicio ISR
-		gpio_set_intr_type(PULSOS,GPIO_INTR_POSEDGE);  // habilito interrupción por flanco descendente (1->0)
-		//tg0_timer_init(TIMER_0, TEST_WITH_RELOAD, TIMER_INTERVAL0_SEC);
-
-	}else{
-		ESP_LOGI(MESH_TAG,"Configurando GPIO para medidor tipo RS485");
-		gpio_pad_select_gpio(RS485);
-		gpio_set_direction(RS485,GPIO_MODE_DEF_OUTPUT);
-	}
-	gpio_pad_select_gpio(LED_PAPA);
-	gpio_set_direction(LED_PAPA,GPIO_MODE_DEF_OUTPUT);
-}
-
 /********* Tareas del Root ************/
 
 void esp_mesh_tx_to_ext(void *arg){
@@ -466,8 +372,14 @@ void bus_rs485(void *arg){
 /**** Medidor de pulsos *****/
 /****************************/
 
-// METODOS
+//INTERRUPCIONES
+/*Interrupcion de entrada de pulso*/
+void IRAM_ATTR INT_GPIO_PULSOS (void* arg)
+{
+	xSemaphoreGiveFromISR(smfPulso,NULL);
+}
 
+// METODOS
 esp_err_t guarda_cuenta_pulsos(char * partition_name, char * page_namespace, char * entry_key, int32_t * Pulsos){
 
 	nvs_handle_t my_handle;
@@ -887,7 +799,6 @@ esp_err_t search_init_partition(uint8_t * pnumber){
 }
 
 // TAREAS
-
 /*Tarea de comunicacion P2P con el sistema*/
 void modbus_tcpip_pulsos(void *arg)
 {
@@ -904,11 +815,13 @@ void modbus_tcpip_pulsos(void *arg)
 
     while (!esp_mesh_is_root()) {
         err = esp_mesh_recv(&from, &data_rx, portMAX_DELAY, &flag, NULL, 0);
-
-        if ((err == ESP_OK)&&(rx_buf[6]==SLAVE_ID)&&(rx_buf[7]==0x03)
-        		&&(rx_buf[8]==MODBUS_ENERGY_REG_INIT_POS_H)
-				&&(rx_buf[9]==MODBUS_ENERGY_REG_INIT_POS_L)
-				&&(rx_buf[11]==MODBUS_ENERGY_REG_LEN))
+        ESP_LOGI("MODBUS", "Mensaje Recibido");
+        if ((err == ESP_OK)
+        		&&(rx_buf[6] == SLAVE_ID)
+        		&&(rx_buf[7] == 0x03)
+        		&&(rx_buf[8] == MODBUS_ENERGY_REG_INIT_POS_H)
+				&&(rx_buf[9] == MODBUS_ENERGY_REG_INIT_POS_L)
+				&&(rx_buf[11] == MODBUS_ENERGY_REG_LEN))
         {
 
         	xQueuePeek(Cuenta_de_pulsos,&(energia.tot),portMAX_DELAY);
@@ -931,7 +844,7 @@ void modbus_tcpip_pulsos(void *arg)
         	tx_buf[16] = energia.u8.hhh8;
         	err = esp_mesh_send(NULL,&data_tx, MESH_DATA_P2P, NULL, 0);
         	if(err == ESP_OK){
-				printf("Mandado\r\n");
+				ESP_LOGI("MODBUS", "Respuesta enviada");
 			}
         }
     }
@@ -1137,10 +1050,10 @@ static void rotar_nvs(void* arg){
 void conteo_pulsos (void *arg){
 
 	uint64_t contador;
-	contador = energy_ini;
+	contador = round( (float)energy_ini * (float)fconv );
 	double muestra_energia;
+	muestra_energia = (float) energy_ini;
 
-	muestra_energia = (float)energy_ini*(float)fconv;
 	ESP_LOGI("Datos iniciales", "Energia: %.6lf\r\n Pulsos: %d ", (float) energy_ini, (int)muestra_energia);
 
 	while(!esp_mesh_is_root()){
@@ -1427,18 +1340,94 @@ void ip_event_handler(void *arg, esp_event_base_t event_base,
     }
 }
 
+
+
+
+/*Interrupcion asociada al guardado en flash*/
+
+void IRAM_ATTR guadado_en_flash(void* arg)
+{
+	xSemaphoreGiveFromISR(smfNVS,NULL);
+}
+
+/****************************************/
+/**** Configuracion e inicializacion ****/
+/****************************************/
+
+bool vTaskB( char *nombre_tarea )
+  {
+  TaskStatus_t *pxTaskStatusArray;
+  UBaseType_t uxArraySize;
+  uint32_t ulTotalRunTime;
+
+
+
+  // Take a snapshot of the number of tasks in case it changes while this
+  // function is executing.
+  uxArraySize = uxTaskGetNumberOfTasks();
+
+  // Allocate a TaskStatus_t structure for each task.  An array could be
+  // allocated statically at compile time.
+  pxTaskStatusArray = pvPortMalloc( uxArraySize * sizeof( TaskStatus_t ) );
+
+
+   if( pxTaskStatusArray != NULL )
+   {
+      // Generate raw status information about each task.
+	    uxTaskGetSystemState( pxTaskStatusArray, uxArraySize, &ulTotalRunTime );
+       for(int i = 0; i < uxArraySize;i++){
+    	   //ESP_LOGW(MESH_TAG,"Tarea %d %s",i,pxTaskStatusArray[i].pcTaskName);
+    	   if(strcmp(pxTaskStatusArray[i].pcTaskName,nombre_tarea)==0){
+    		   printf("Tarea %s, numero %d ya existe\r\n",pxTaskStatusArray[i].pcTaskName,i);
+    		   return false;
+    	   }
+       }
+   }
+   ESP_LOGW(MESH_TAG,"Creando Tarea: %s",(char *)nombre_tarea);
+   return true;
+}
+
+void config_gpio_pulsos(tipo_de_medidor tipo){
+
+	if( tipo == pulsos ){
+		ESP_LOGI(MESH_TAG,"Configurando GPIO para medidor tipo pulsos");
+		//Tipo de interrupcion
+		gpio_install_isr_service(ESP_INTR_FLAG_DEFAULT);// instala el servicio ISR con la configuración por defecto.
+		//Habilitacion de pines e interrupciones
+		gpio_pad_select_gpio(SALVAR);   //configuro el BOTON_SALVAR como un pin GPIO
+		gpio_set_direction(SALVAR, GPIO_MODE_DEF_INPUT);   // seleciono el BOTON_SALVAR como pin de entrada
+		gpio_isr_handler_add(SALVAR, guadado_en_flash, NULL); // añado el manejador para el servicio ISR
+		gpio_set_intr_type(SALVAR,GPIO_INTR_NEGEDGE);  // habilito interrupción por flanco descendente (1->0)
+
+		gpio_pad_select_gpio(PULSOS);   //configuro el BOTON_SALVAR como un pin GPIO
+		gpio_set_direction(PULSOS, GPIO_MODE_DEF_INPUT);    // seleciono el PULSOS como pin de entrada
+		gpio_isr_handler_add(PULSOS, INT_GPIO_PULSOS, NULL); // añado el manejador para el servicio ISR
+		gpio_set_intr_type(PULSOS,GPIO_INTR_POSEDGE);  // habilito interrupción por flanco descendente (1->0)
+		//tg0_timer_init(TIMER_0, TEST_WITH_RELOAD, TIMER_INTERVAL0_SEC);
+
+	}else{
+		ESP_LOGI(MESH_TAG,"Configurando GPIO para medidor tipo RS485");
+		gpio_pad_select_gpio(RS485);
+		gpio_set_direction(RS485,GPIO_MODE_DEF_OUTPUT);
+	}
+	gpio_pad_select_gpio(LED_PAPA);
+	gpio_set_direction(LED_PAPA,GPIO_MODE_DEF_OUTPUT);
+}
+
 /*Inicio Mesh*/
 
 void mesh_init(form_mesh form_mesh, form_locwifi form_locwifi, form_modbus form_modbus){
 
 	show_ram_status("Before mesh init");
 	esp_err_t err;
-	fconv = form_modbus.conversion;
-	port = form_mesh.port;
-	tipo = str2enum(form_modbus.tipo);
-	SLAVE_ID = form_modbus.slaveid;
-	energy_ini = form_modbus.energia;
-	baud_rate = form_modbus.baud_rate;
+
+	//Inicialización de variables necesarias
+	port = form_mesh.port;				//Puerto para conexiones TCP/IP
+	SLAVE_ID = form_modbus.slaveid;		//Modbus slave ID
+	baud_rate = form_modbus.baud_rate;	//Modbus baudrate para com. serial
+	tipo = str2enum(form_modbus.tipo);	//Tipo de medidor (Pulsos, RS485)
+	energy_ini = form_modbus.energia;	//Expresada en kWh
+	fconv = form_modbus.conversion;		//Factor de conversión para los pulsos
 
 	RxSocket = xQueueCreate(5,128);
 	TxRS485 = xQueueCreate(5,128);
@@ -1449,6 +1438,7 @@ void mesh_init(form_mesh form_mesh, form_locwifi form_locwifi, form_modbus form_
 	smfNVS = xSemaphoreCreateBinary();
 	Cuenta_de_pulsos = xQueueCreate(1,8);
 
+	//Ajuste de pines según función
 	config_gpio_pulsos(tipo);
 
     /*  tcpip initialization */

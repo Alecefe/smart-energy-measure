@@ -22,8 +22,8 @@ void ServidorHTTP();
 
 // ESTRUCTURAS DE DATOS PARA FORMULARIOS
 typedef struct form_locwifi{
-	char ssid[20];
-	char password[20];
+	char ssid[30];
+	char password[30];
 }form_locwifi;
 
 typedef struct form_modbus{
