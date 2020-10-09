@@ -1,27 +1,27 @@
 #ifndef MAIN_MESH_H_
 #define MAIN_MESH_H_
+#include <lwip/netdb.h>
 #include <sys/param.h>
-#include "esp_system.h"
+#include "UART1.h"
+#include "driver/timer.h"
 #include "esp_event.h"
-#include "tcpip_adapter.h"
+#include "esp_system.h"
 #include "esp_websocket_client.h"
 #include "lwip/err.h"
 #include "lwip/sockets.h"
 #include "lwip/sys.h"
-#include <lwip/netdb.h>
-#include "UART1.h"
-#include "driver/timer.h"
 #include "math.h"
 #include "mdns.h"
 #include "ram-heap.h"
+#include "tcpip_adapter.h"
 
 // DEFINICIONES
-#define PULSOS 0
+#define PULSOS 35
 #define SALVAR 22
 #define RS485 21
 #define LED_PAPA 2
-#define RX_SIZE          (1500)
-#define TX_SIZE          (1460)
+#define RX_SIZE (1500)
+#define TX_SIZE (1460)
 #define CONFIG_MESH_ROUTE_TABLE_SIZE 50
 #define ESP_INTR_FLAG_DEFAULT 0
 #define CONFIG_MESH_AP_AUTHMODE WIFI_AUTH_WPA2_PSK
@@ -29,7 +29,7 @@
 #define MODBUS_ENERGY_REG_INIT_POS_H (0x00)
 #define MODBUS_ENERGY_REG_INIT_POS_L (0x18)
 #define MODBUS_ENERGY_REG_LEN (0x04)
-#define BIT_0 (1<<0)
+#define BIT_0 (1 << 0)
 
 // Medidor de pulsos
 #define STORAGE_NAMESPACE "storage"
@@ -37,7 +37,6 @@
 #define Limite_entradas_por_pagina 4
 #define Limite_paginas_por_particion 3
 #define max_particiones 3
-
 
 /*******************************************************
  *                Variable Definitions
@@ -49,7 +48,6 @@ QueueHandle_t TxRS485;
 QueueHandle_t RxlenRS485;
 QueueHandle_t TCPsend;
 TaskHandle_t timer;
-
 
 QueueHandle_t Cuenta_de_pulsos;
 
@@ -70,25 +68,22 @@ int men;
 EventGroupHandle_t prueba;
 
 typedef struct {
-    int type;  // the type of timer's event
-    int timer_group;
-    int timer_idx;
-    uint64_t timer_counter_value;
+  int type;  // the type of timer's event
+  int timer_group;
+  int timer_idx;
+  uint64_t timer_counter_value;
 } timer_event_t;
 
+void IRAM_ATTR interrupcionGPIOPULSOS(void *arg);
 
+void IRAM_ATTR guadado_en_flash(void *arg);
 
-void IRAM_ATTR interrupcionGPIOPULSOS (void* arg);
-
-void IRAM_ATTR guadado_en_flash(void* arg);
-
-bool vTaskB( char *nombre_tarea );
+bool vTaskB(char *nombre_tarea);
 
 /*Root*/
 void esp_mesh_tx_to_ext(void *arg);
 
 void esp_mesh_p2p_tx_main(void *Pa);
-
 
 /*Nodo medidor por RS485*/
 void esp_mesh_p2p_rx_main(void *arg);
@@ -101,17 +96,17 @@ void modbus_tcpip_pulsos(void *arg);
 
 void nvs_pulsos(void *arg);
 
-void conteo_pulsos (void *arg);
+void conteo_pulsos(void *arg);
 
 /*Manejadores de eventos*/
 void mesh_event_handler(void *arg, esp_event_base_t event_base,
                         int32_t event_id, void *event_data);
 
-void ip_event_handler(void *arg, esp_event_base_t event_base,
-                      int32_t event_id, void *event_data);
+void ip_event_handler(void *arg, esp_event_base_t event_base, int32_t event_id,
+                      void *event_data);
 
 /*Inicializacion*/
-void mesh_init(form_mesh form_mesh, form_locwifi form_locwifi, form_modbus form_modbus);
+void mesh_init(form_mesh form_mesh, form_locwifi form_locwifi,
+               form_modbus form_modbus);
 
 #endif
-
