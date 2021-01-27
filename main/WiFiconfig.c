@@ -1,6 +1,17 @@
 /**************************************************************************/
-#include "include/WiFiconfig.h"
 
+// Inclusion de librerias ----------------------------------//
+#include "WiFiconfig.h"
+#include <string.h>
+#include "driver/gpio.h"
+#include "driver/periph_ctrl.h"
+#include "driver/timer.h"
+#include "esp_log.h"
+#include "esp_types.h"
+#include "esp_wifi.h"
+#include "freertos/queue.h"
+#include "freertos/semphr.h"
+#include "nvs_flash.h"
 SemaphoreHandle_t change_wifi_mode = NULL;
 
 // Interrupcion de timer ------------------------------------------------//
@@ -59,8 +70,8 @@ void supervisor_sta(void* arg) {
 }
 
 // Manejador de eventos --------------------------------------------------//
-static void ManejadorEventos(void* arg, esp_event_base_t event_base,
-                             int32_t event_id, void* event_data) {
+static void wifi_event_handler(void* arg, esp_event_base_t event_base,
+                               int32_t event_id, void* event_data) {
   switch (event_id) {
     case SYSTEM_EVENT_STA_START:
       xTaskCreate(&supervisor_sta, "TimeoutSTA", 2048 * 1, NULL, 5, &sup_sta);
@@ -140,7 +151,7 @@ void iniciar_wifi(void) {
   wifi_init_config_t cfg = WIFI_INIT_CONFIG_DEFAULT();
   esp_wifi_init(&cfg);
   ESP_ERROR_CHECK(esp_event_handler_register(WIFI_EVENT, ESP_EVENT_ANY_ID,
-                                             &ManejadorEventos, NULL));
+                                             &wifi_event_handler, NULL));
   esp_wifi_set_storage(WIFI_STORAGE_RAM);
   config_wifi_sta();
 }

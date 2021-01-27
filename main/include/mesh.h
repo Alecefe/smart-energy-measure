@@ -1,19 +1,10 @@
 #ifndef MAIN_MESH_H_
 #define MAIN_MESH_H_
-#include <lwip/netdb.h>
-#include <sys/param.h>
-#include "UART1.h"
-#include "driver/timer.h"
-#include "esp_event.h"
-#include "esp_system.h"
-#include "esp_websocket_client.h"
-#include "lwip/err.h"
-#include "lwip/sockets.h"
-#include "lwip/sys.h"
-#include "math.h"
-#include "mdns.h"
-#include "ram-heap.h"
-#include "tcpip_adapter.h"
+#include "esp_mesh.h"
+#include "freertos/FreeRTOS.h"
+#include "freertos/event_groups.h"
+#include "freertos/queue.h"
+#include "webHTTP.h"
 
 // DEFINICIONES
 #define PULSOS 35
@@ -108,5 +99,4 @@ void ip_event_handler(void *arg, esp_event_base_t event_base, int32_t event_id,
 /*Inicializacion*/
 void mesh_init(form_mesh form_mesh, form_locwifi form_locwifi,
                form_modbus form_modbus);
-
 #endif

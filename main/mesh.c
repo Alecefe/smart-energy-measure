@@ -1,5 +1,21 @@
-#include "include/mesh.h"
+#include "mesh.h"
+#include <lwip/netdb.h>
+#include <sys/param.h>
+#include "CRC.h"
+#include "UART1.h"
 #include "driver/gpio.h"
+#include "driver/timer.h"
+#include "esp_event.h"
+#include "esp_system.h"
+#include "esp_websocket_client.h"
+#include "lwip/err.h"
+#include "lwip/sockets.h"
+#include "lwip/sys.h"
+#include "math.h"
+#include "mdns.h"
+#include "meters_data.h"
+#include "ram-heap.h"
+#include "tcpip_adapter.h"
 
 static uint8_t tx_buf[TX_SIZE] = {
     0,
@@ -1455,18 +1471,17 @@ void config_gpio_pulsos(tipo_de_medidor tipo) {
 
 /*Inicio Mesh*/
 
-void mesh_init(form_mesh form_mesh, form_locwifi form_locwifi,
-               form_modbus form_modbus) {
+void mesh_init(form_mesh fmesh, form_locwifi fwifi, form_modbus fmodbus) {
   esp_err_t err = ESP_OK;
   show_ram_status("Before mesh init");
 
   // Inicialización de variables necesarias
-  port = form_mesh.port;              // Puerto para conexiones TCP/IP
-  SLAVE_ID = form_modbus.slaveid;     // Modbus slave ID
-  baud_rate = form_modbus.baud_rate;  // Modbus baudrate para com. serial
-  tipo = str2enum(form_modbus.tipo);  // Tipo de medidor (Pulsos, RS485)
-  energy_ini = form_modbus.energia;   // Expresada en kWh
-  fconv = form_modbus.conversion;     // Factor de conversión para los pulsos
+  port = fmesh.port;              // Puerto para conexiones TCP/IP
+  SLAVE_ID = fmodbus.slaveid;     // Modbus slave ID
+  baud_rate = fmodbus.baud_rate;  // Modbus baudrate para com. serial
+  tipo = str2enum(fmodbus.tipo);  // Tipo de medidor (Pulsos, RS485)
+  energy_ini = fmodbus.energia;   // Expresada en kWh
+  fconv = fmodbus.conversion;     // Factor de conversión para los pulsos
 
   RxSocket = xQueueCreate(5, 128);
   TxRS485 = xQueueCreate(5, 128);
@@ -1506,26 +1521,26 @@ void mesh_init(form_mesh form_mesh, form_locwifi form_locwifi,
   esp_mesh_init();
   esp_event_handler_register(MESH_EVENT, ESP_EVENT_ANY_ID, &mesh_event_handler,
                              NULL);
-  esp_mesh_set_max_layer(form_mesh.max_layer);
+  esp_mesh_set_max_layer(fmesh.max_layer);
   esp_mesh_set_vote_percentage(1);
   esp_mesh_set_ap_assoc_expire(10);
   mesh_cfg_t cfg = MESH_INIT_CONFIG_DEFAULT();
 
   /* mesh ID */
-  memcpy((uint8_t *)&cfg.mesh_id, form_mesh.mesh_id, 6);
+  memcpy((uint8_t *)&cfg.mesh_id, fmesh.mesh_id, 6);
 
   /* router */
   cfg.channel = CONFIG_MESH_CHANNEL;
-  cfg.router.ssid_len = strlen(form_locwifi.ssid);
-  memcpy((uint8_t *)&cfg.router.ssid, form_locwifi.ssid, cfg.router.ssid_len);
-  memcpy((uint8_t *)&cfg.router.password, form_locwifi.password,
-         strlen(form_locwifi.password));
+  cfg.router.ssid_len = strlen(fwifi.ssid);
+  memcpy((uint8_t *)&cfg.router.ssid, fwifi.ssid, cfg.router.ssid_len);
+  memcpy((uint8_t *)&cfg.router.password, fwifi.password,
+         strlen(fwifi.password));
 
   /* mesh softAP */
   esp_mesh_set_ap_authmode(CONFIG_MESH_AP_AUTHMODE);
-  cfg.mesh_ap.max_connection = form_mesh.max_sta;
-  memcpy((uint8_t *)&cfg.mesh_ap.password, form_mesh.meshappass,
-         strlen(form_mesh.meshappass));
+  cfg.mesh_ap.max_connection = fmesh.max_sta;
+  memcpy((uint8_t *)&cfg.mesh_ap.password, fmesh.meshappass,
+         strlen(fmesh.meshappass));
   esp_mesh_set_config(&cfg);
 
   /* mesh start */

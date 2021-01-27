@@ -1,8 +1,17 @@
 /*********************************************************************************/
-#include "include/webHTTP.h"
+#include "webHTTP.h"
+#include <fcntl.h>
+#include <mdns_fs.h>
+#include <string.h>
+#include "cJSON.h"
+#include "esp_http_server.h"
 #include "esp_log.h"
-#include "include/ram-heap.h"
+#include "esp_system.h"
+#include "esp_vfs.h"
+#include "esp_wifi.h"
+#include "lwip/api.h"
 #include "math.h"
+#include "ram-heap.h"
 const char *nvs_tag = "NVS";
 static const char *REST_TAG = "esp-rest";
 static const char *TAG = "REQUEST";
@@ -386,72 +395,76 @@ void get_form_flash_mesh(form_mesh *form) {
     //		switch(err){
     //			case ESP_OK:
     //				ESP_LOGI(nvs_tag,"Tipo en flash:
-    //%s",form->tipo); 			break; 			case ESP_ERR_NVS_NOT_FOUND:
-    //ESP_LOGI(nvs_tag,"Tipo
-    // en flash: none"); 			break; 			default: 				printf("Error (%s) opening
-    // NVS handle!\n", esp_err_to_name(err)); 			break;
+    //%s",form->tipo); 			break; 			case
+    // ESP_ERR_NVS_NOT_FOUND: ESP_LOGI(nvs_tag,"Tipo
+    // en flash: none"); 			break; 			default:
+    // printf("Error
+    // (%s) opening NVS handle!\n", esp_err_to_name(err));
+    // break;
     //		}
     //		}
     //		switch(str2enum(form->tipo)){
     //
     //		case(rs485):
     //				err =
-    // nvs_get_u32(ctrl_mesh,"baud",&(form->baud_rate)); 				switch(err){
-    // case
-    // ESP_OK: 						ESP_LOGI(nvs_tag,"Baud Rate en flash:
-    // %"PRIu32,form->baud_rate); 					break; 					case ESP_ERR_NVS_NOT_FOUND:
+    // nvs_get_u32(ctrl_mesh,"baud",&(form->baud_rate));
+    // switch(err){ case ESP_OK:
+    // ESP_LOGI(nvs_tag,"Baud Rate en flash:
+    // %"PRIu32,form->baud_rate); 					break;
+    // case ESP_ERR_NVS_NOT_FOUND:
     //						ESP_LOGI(nvs_tag,"Baud Rate en
-    //flash:
-    // none"); 					break; 					default: 						printf("Error (%s) opening NVS
-    // handle!\n", esp_err_to_name(err));
-    // break;
+    // flash:
+    // none"); 					break;
+    // default: printf("Error
+    // (%s) opening NVS handle!\n", esp_err_to_name(err)); break;
     //				}
     //				break;
     //		case(pulsos):
     //				err =
-    // nvs_get_u64(ctrl_mesh,"energy",&(form->energia)); 				switch(err){
-    // case
-    // ESP_OK: 						ESP_LOGI(nvs_tag,"Pulsos en flash: %"PRIu64,form->energia);
-    // break; 					case ESP_ERR_NVS_NOT_FOUND: 						ESP_LOGI(nvs_tag,"Pulsos en flash:
-    // none"); 					break; 					default: 						printf("Error (%s) opening NVS
-    // handle!\n", esp_err_to_name(err));
-    // break;
+    // nvs_get_u64(ctrl_mesh,"energy",&(form->energia));
+    // switch(err){ case ESP_OK:
+    // ESP_LOGI(nvs_tag,"Pulsos en flash: %"PRIu64,form->energia); break;
+    // case ESP_ERR_NVS_NOT_FOUND:
+    // ESP_LOGI(nvs_tag,"Pulsos en flash: none");
+    // break; default: 						printf("Error
+    // (%s) opening NVS handle!\n", esp_err_to_name(err)); break;
     //				}
     //				err =
-    // nvs_get_u8(ctrl_mesh,"slaveid",&(form->slaveid)); 				switch(err){
-    // case
-    // ESP_OK: 						ESP_LOGI(nvs_tag,"Slave ID en medidor a pulsos en
-    // flash:
-    //%d",form->slaveid); 					break; 					case
-    //ESP_ERR_NVS_NOT_FOUND: 						ESP_LOGI(nvs_tag,"Slave ID en flash: none");
-    // break; 					default: 						printf("Error (%s) opening NVS
-    // handle!\n", esp_err_to_name(err));
-    // break;
+    // nvs_get_u8(ctrl_mesh,"slaveid",&(form->slaveid));
+    // switch(err){ case ESP_OK:
+    // ESP_LOGI(nvs_tag,"Slave ID en medidor a pulsos en flash:
+    //%d",form->slaveid); 					break;
+    // case ESP_ERR_NVS_NOT_FOUND:
+    // ESP_LOGI(nvs_tag,"Slave ID en flash: none");
+    // break; 					default:
+    // printf("Error
+    // (%s) opening NVS handle!\n", esp_err_to_name(err)); break;
     //				}
     //
     //				err =
-    // nvs_get_u16(ctrl_mesh,"conver",&(form->conversion)); 				switch(err){
-    // case
-    // ESP_OK: 						ESP_LOGI(nvs_tag,"Factor de conversion en
-    // flash:
-    //%d",form->conversion); 					break; 					case
-    //ESP_ERR_NVS_NOT_FOUND: 						ESP_LOGI(nvs_tag,"Factor de conversion en flash:
-    // none"); 					break; 					default: 						printf("Error (%s) opening NVS
-    // handle!\n", esp_err_to_name(err));
-    // break;
+    // nvs_get_u16(ctrl_mesh,"conver",&(form->conversion));
+    // switch(err){ case ESP_OK:
+    // ESP_LOGI(nvs_tag,"Factor de conversion en flash:
+    //%d",form->conversion); 					break;
+    // case ESP_ERR_NVS_NOT_FOUND:
+    // ESP_LOGI(nvs_tag,"Factor de conversion en flash:
+    // none"); 					break;
+    // default: printf("Error
+    // (%s) opening NVS handle!\n", esp_err_to_name(err)); break;
     //				}
     //				break;
     //			case(chino):
     //				err =
-    // nvs_get_u32(ctrl_mesh,"baud",&(form->baud_rate)); 				switch(err){
-    // case
-    // ESP_OK: 						ESP_LOGI(nvs_tag,"Baud Rate en flash:
-    // %"PRIu32,form->baud_rate); 					break; 					case ESP_ERR_NVS_NOT_FOUND:
+    // nvs_get_u32(ctrl_mesh,"baud",&(form->baud_rate));
+    // switch(err){ case ESP_OK:
+    // ESP_LOGI(nvs_tag,"Baud Rate en flash:
+    // %"PRIu32,form->baud_rate); 					break;
+    // case ESP_ERR_NVS_NOT_FOUND:
     //						ESP_LOGI(nvs_tag,"Baud Rate en
-    //flash:
-    // none"); 					break; 					default: 						printf("Error (%s) opening NVS
-    // handle!\n", esp_err_to_name(err));
-    // break;
+    // flash:
+    // none"); 					break;
+    // default: printf("Error
+    // (%s) opening NVS handle!\n", esp_err_to_name(err)); break;
     //				}
     //				break;
     //				case(enlace):

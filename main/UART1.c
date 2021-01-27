@@ -1,5 +1,11 @@
-
-#include "include/UART1.h"
+#include "UART1.h"
+#include <stdio.h>
+#include <strings.h>
+#include "CRC.h"
+#include "esp_log.h"
+#include "esp_mesh.h"
+#include "esp_mesh_internal.h"
+#include "soc/uart_struct.h"
 
 static const char *TAG = "uart_events";
 static const char *uart_tag = "uart_task";
