@@ -22,13 +22,6 @@
 #define MODBUS_ENERGY_REG_LEN (0x04)
 #define BIT_0 (1 << 0)
 
-// Medidor de pulsos
-#define STORAGE_NAMESPACE "storage"
-#define Limite_pulsos_por_entrada 10
-#define Limite_entradas_por_pagina 4
-#define Limite_paginas_por_particion 3
-#define max_particiones 3
-
 /*******************************************************
  *                Variable Definitions
  *******************************************************/
