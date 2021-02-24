@@ -1,10 +1,11 @@
 #ifndef MAIN_MESH_H_
 #define MAIN_MESH_H_
+#include <serverHTTP.h>
+#include "CRC.h"
 #include "esp_mesh.h"
 #include "freertos/FreeRTOS.h"
 #include "freertos/event_groups.h"
 #include "freertos/queue.h"
-#include "webHTTP.h"
 
 // DEFINICIONES
 #define PULSOS 35
@@ -58,38 +59,33 @@ typedef struct {
   uint64_t timer_counter_value;
 } timer_event_t;
 
+typedef union {
+  uint32_t energy;
+  struct {
+    INT_VAL LowReg;
+    INT_VAL HighReg;
+  } registers;
+} energy_t;
+
+typedef struct {
+  mesh_addr_t mac;
+  uint8_t slave_id;
+  energy_t energy;
+  char date[25];
+} mesh_modbus_meter;
+
 void IRAM_ATTR interrupcionGPIOPULSOS(void *arg);
-
-void IRAM_ATTR guadado_en_flash(void *arg);
-
-bool vTaskB(char *nombre_tarea);
-
-/*Root*/
 void esp_mesh_tx_to_ext(void *arg);
-
 void esp_mesh_p2p_tx_main(void *Pa);
-
-/*Nodo medidor por RS485*/
 void esp_mesh_p2p_rx_main(void *arg);
-
 void bus_rs485(void *arg);
-
 void modbus_tcpip_pulsos(void *arg);
-
-/*Nodo medidor por pulsos*/
-
 void nvs_pulsos(void *arg);
-
 void conteo_pulsos(void *arg);
-
-/*Manejadores de eventos*/
 void mesh_event_handler(void *arg, esp_event_base_t event_base,
                         int32_t event_id, void *event_data);
-
 void ip_event_handler(void *arg, esp_event_base_t event_base, int32_t event_id,
                       void *event_data);
-
-/*Inicializacion*/
 void mesh_init(form_mesh form_mesh, form_locwifi form_locwifi,
                form_modbus form_modbus);
 #endif

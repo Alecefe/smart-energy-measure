@@ -1,7 +1,6 @@
 #include "mesh.h"
 #include <lwip/netdb.h>
 #include <sys/param.h>
-#include "CRC.h"
 #include "UART1.h"
 #include "driver/gpio.h"
 #include "driver/timer.h"
@@ -13,11 +12,16 @@
 #include "lwip/sys.h"
 #include "math.h"
 #include "meters_data.h"
+#include "modbus_master.h"
 #include "nvs_rotate.h"
 #include "ram-heap.h"
 #include "task_verify.h"
 #include "tcpip_adapter.h"
 
+#define CONFIG_SLAVE_QUANTITY 3
+#define MODBUS_TIMEOUT 100
+#define TX_BUF_SIZE 1024
+#define MMTAG "Modbus Master"
 static uint8_t tx_buf[TX_SIZE] = {
     0,
 };
@@ -36,8 +40,13 @@ uint16_t fconv;
 uint16_t port;
 uint64_t energy_ini;
 SemaphoreHandle_t smfPulso = NULL;
-SemaphoreHandle_t smfNVS = NULL;
 bool creador = true;
+
+uint16_t start_address = 0x21, quantity = 0x02;
+uint8_t slave_id[] = {0x01, 0x02, 0x0f};
+
+mesh_modbus_meter meter[CONFIG_SLAVE_QUANTITY];
+mesh_addr_t rt[CONFIG_MESH_ROUTE_TABLE_SIZE];
 
 tipo_de_medidor tipo;
 uint32_t baud_rate;
@@ -81,7 +90,7 @@ void esp_mesh_tx_to_ext(void *arg) {
   vTaskDelete(NULL);
 }
 
-static void tcp_server_task(void *pvParameters) {
+static void https_client_task(void *pvParameters) {
   /*
    *	Tarea que maneja el servidor TCP, por aquí se realizan conexiones con
    *redes externas
@@ -212,7 +221,34 @@ static void tcp_server_task(void *pvParameters) {
   vTaskDelete(NULL);
 }
 
-void esp_mesh_p2p_tx_main(void *Pa) {
+esp_err_t get_meters_mac(mesh_addr_t *rt, mesh_modbus_meter *meter,
+                         int table_size, int *returned_table_size) {
+  esp_err_t err;
+  err = esp_mesh_get_routing_table(rt, table_size * 6, returned_table_size);
+  if (err != ESP_OK) return err;
+  for (int i = 0; i < *returned_table_size; i++) {
+    memcpy(&(meter[i].mac), &rt[i], sizeof(mesh_addr_t));
+  }
+  return ESP_OK;
+}
+
+esp_err_t get_meter_id(mesh_modbus_meter *meter, mesh_data_t *data) {
+  esp_err_t err;
+  //  int flag = 0;
+  //  mesh_addr_t slave_mesh_addr;
+  //
+  //  err = esp_mesh_send(&meter->mac, data, MESH_DATA_P2P, NULL, 0);
+  //  if (err != ESP_OK) return err;
+  //  err = esp_mesh_recv(&slave_mesh_addr, data, (portTickType)MODBUS_TIMEOUT,
+  //                      &flag, NULL, 0);
+  //  if (err != ESP_OK) return err;
+  //  if (err == ESP_OK) {
+  //    meter->modbus_id = *data->data;
+  //  }
+  return ESP_OK;
+}
+
+void mesh_modbus_master(void *Pa) {
   /*
    * Tarea para repartir el mensaje recibido en el servidor por Broadcast de la
    * red Mesh
@@ -220,34 +256,36 @@ void esp_mesh_p2p_tx_main(void *Pa) {
 
   esp_err_t err;
   mesh_data_t data;
-  char mensaje2[tamBUFFER] = "";
   data.proto = MESH_PROTO_BIN;
   data.data = tx_buf;
   data.size = sizeof(tx_buf);
   data.tos = MESH_TOS_P2P;
 
-  int tamano, len = 0;
-  mesh_addr_t rt[CONFIG_MESH_ROUTE_TABLE_SIZE];
+  int rt_len = 0;
 
-  while (esp_mesh_is_root()) {
-    xQueueReceive(RxSocket, (char *)mensaje2, portMAX_DELAY);
+  err = get_meters_mac(rt, meter, CONFIG_MESH_ROUTE_TABLE_SIZE, &rt_len);
 
-    tamano = 6 + (uint8_t)mensaje2[4] + (uint8_t)mensaje2[5];
+  // Send energy modbus queries
+  for (int i = 0; i <= CONFIG_SLAVE_QUANTITY; i++) {
+    read_input_register(slave_id[i], start_address, quantity, data.data);
 
-    for (int i = 0; i < tamano; i++) {
-      tx_buf[i] = (uint8_t)mensaje2[i];
-    }
-    esp_mesh_get_routing_table((mesh_addr_t *)&rt,
-                               CONFIG_MESH_ROUTE_TABLE_SIZE * 6, &len);
-
-    printf("Mandando a Nodo\r\n");
-
-    for (int i = 1; i < len; i++) {
-      err = esp_mesh_send(&rt[i], &data, MESH_DATA_P2P, NULL, 0);
+    for (int j = 1; j < rt_len; j++) {
+      err = esp_mesh_send(&meter[j].mac, &data, MESH_DATA_P2P, NULL, 0);
       if (err != ESP_OK) {
-        ESP_LOGW(MESH_TAG, "\r\nMensaje no enviado\r\n");
+        ESP_LOGW(MESH_TAG, "Query error slave_id: %02x" MACSTR, slave_id[i],
+                 MAC2STR(meter[j].mac.addr));
       }
     }
+  }
+
+  while (esp_mesh_is_root()) {
+    //    xQueueReceive(RxSocket, (char *)mensaje2, portMAX_DELAY);
+    /********* LEER LOS INPUTS REGISTERS ************/
+
+    //    tamano = 6 + (uint8_t)mensaje2[4] + (uint8_t)mensaje2[5];
+    //    for (int i = 0; i < tamano; i++) {
+    //      tx_buf[i] = (uint8_t)mensaje2[i];
+    //    }
   }
   ESP_LOGE(MESH_TAG, "Se elimino tarea Tx main\r\n");
   vTaskDelete(NULL);
@@ -862,12 +900,12 @@ void ip_event_handler(void *arg, esp_event_base_t event_base, int32_t event_id,
            ip4addr_ntoa(&event->ip_info.ip));
   creador = vTaskB(tcp_server);
   if (creador) {
-    xTaskCreatePinnedToCore(tcp_server_task, "tcp_server", 1024 * 4, NULL, 1,
-                            NULL, 1);
+    xTaskCreatePinnedToCore(https_client_task, "https_client_task", 1024 * 4,
+                            NULL, 1, NULL, 1);
   }
   creador = vTaskB(tx_root);
   if (creador) {
-    xTaskCreatePinnedToCore(esp_mesh_p2p_tx_main, "TX", 1024 * 3, NULL, 5, NULL,
+    xTaskCreatePinnedToCore(mesh_modbus_master, "TX", 1024 * 3, NULL, 5, NULL,
                             0);
   }
   creador = vTaskB(tx_ext);
@@ -875,12 +913,6 @@ void ip_event_handler(void *arg, esp_event_base_t event_base, int32_t event_id,
     xTaskCreatePinnedToCore(esp_mesh_tx_to_ext, "TX_EXT", 3072 * 2, NULL, 5,
                             NULL, 0);
   }
-}
-
-/*Interrupcion asociada al guardado en flash*/
-
-void IRAM_ATTR guadado_en_flash(void *arg) {
-  xSemaphoreGiveFromISR(smfNVS, NULL);
 }
 
 /****************************************/
@@ -892,12 +924,6 @@ void config_gpio_pulsos(tipo_de_medidor tipo) {
     ESP_LOGI(MESH_TAG, "Configurando GPIO para medidor tipo pulsos");
     // Tipo de interrupcion
     gpio_install_isr_service(ESP_INTR_FLAG_DEFAULT);
-    // Habilitacion de pines e interrupciones
-    gpio_pad_select_gpio(SALVAR);
-    gpio_set_direction(SALVAR, GPIO_MODE_DEF_INPUT);
-    gpio_isr_handler_add(SALVAR, guadado_en_flash, NULL);
-    gpio_set_intr_type(SALVAR, GPIO_INTR_NEGEDGE);
-
     gpio_pad_select_gpio(PULSOS);  // configuro el BOTON_SALVAR como un pin GPIO
     gpio_set_direction(
         PULSOS,
@@ -937,7 +963,6 @@ void mesh_init(form_mesh fmesh, form_locwifi fwifi, form_modbus fmodbus) {
   TCPsend = xQueueCreate(5, 128);
 
   smfPulso = xSemaphoreCreateBinary();
-  smfNVS = xSemaphoreCreateBinary();
   Cuenta_de_pulsos = xQueueCreate(1, 8);
 
   // Ajuste de pines según función
