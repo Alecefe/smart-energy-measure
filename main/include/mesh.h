@@ -75,6 +75,7 @@ typedef struct {
   char date[25];
 } mesh_modbus_meter;
 
+esp_err_t recv_node_response(uint8_t slave_id, uint8_t index);
 esp_err_t frame_qry_2all_nodes(uint8_t slave_id, mesh_data_t *data);
 void IRAM_ATTR interrupcionGPIOPULSOS(void *arg);
 void esp_mesh_tx_to_ext(void *arg);

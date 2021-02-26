@@ -221,16 +221,6 @@ static void https_client_task(void *pvParameters) {
   vTaskDelete(NULL);
 }
 
-esp_err_t get_meters_mac(mesh_addr_t *rt, int table_size,
-                         int *returned_table_size) {
-  esp_err_t err;
-  err = esp_mesh_get_routing_table(rt, table_size * 6, returned_table_size);
-  return (err != ESP_OK) ? err : ESP_OK;
-  //  for (int i = 0; i < *returned_table_size; i++) {
-  //    memcpy(&(meter[i].mac), &rt[i], sizeof(mesh_addr_t));
-  //  }
-}
-
 esp_err_t send_query_2all_nodes(uint8_t slave_id) {
   /*Tomar la routing table y enviar el modbus query con el actual slaveID a
    * todos los nodos*/
@@ -244,7 +234,8 @@ esp_err_t send_query_2all_nodes(uint8_t slave_id) {
   read_input_register_frame(slave_id, start_address, quantity, data.data);
 
   int rt_len = 0;
-  err = get_meters_mac(rt, CONFIG_MESH_ROUTE_TABLE_SIZE, &rt_len);
+  err =
+      esp_mesh_get_routing_table(rt, CONFIG_MESH_ROUTE_TABLE_SIZE * 6, &rt_len);
   for (int j = 1; j < rt_len; j++) {
     err = esp_mesh_send(&rt[j], &data, MESH_DATA_P2P, NULL, 0);
     if (err != ESP_OK) {
@@ -256,7 +247,7 @@ esp_err_t send_query_2all_nodes(uint8_t slave_id) {
   return ESP_OK;
 }
 
-static esp_err_t recv_node_response(uint8_t slave_id, uint8_t index) {
+esp_err_t recv_node_response(uint8_t slave_id, uint8_t index) {
   /* Recibir los datos provenientes de la red y llenar la estructura de salida*/
   esp_err_t err;
   mesh_addr_t from;
