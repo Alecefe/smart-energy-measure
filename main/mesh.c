@@ -19,7 +19,7 @@
 #include "tcpip_adapter.h"
 
 #define CONFIG_SLAVE_QUANTITY 3
-#define MODBUS_TIMEOUT 100
+#define MODBUS_TIMEOUT 1000
 #define TX_BUF_SIZE 1024
 #define MMTAG "Modbus Master"
 static uint8_t tx_buf[TX_SIZE] = {
@@ -39,17 +39,17 @@ uint8_t SLAVE_ID;
 uint16_t fconv;
 uint16_t port;
 uint64_t energy_ini;
+tipo_de_medidor tipo;
+uint32_t baud_rate;
+
 SemaphoreHandle_t smfPulso = NULL;
 bool creador = true;
 
 uint16_t start_address = 0x21, quantity = 0x02;
 uint8_t slave_id[] = {0x01, 0x02, 0x0f};
-
 mesh_modbus_meter meter[CONFIG_SLAVE_QUANTITY];
-mesh_addr_t rt[CONFIG_MESH_ROUTE_TABLE_SIZE];
 
-tipo_de_medidor tipo;
-uint32_t baud_rate;
+mesh_addr_t rt[CONFIG_MESH_ROUTE_TABLE_SIZE];
 
 /********* Tareas del Root ************/
 
@@ -221,73 +221,83 @@ static void https_client_task(void *pvParameters) {
   vTaskDelete(NULL);
 }
 
-esp_err_t get_meters_mac(mesh_addr_t *rt, mesh_modbus_meter *meter,
-                         int table_size, int *returned_table_size) {
+esp_err_t get_meters_mac(mesh_addr_t *rt, int table_size,
+                         int *returned_table_size) {
   esp_err_t err;
   err = esp_mesh_get_routing_table(rt, table_size * 6, returned_table_size);
-  if (err != ESP_OK) return err;
-  for (int i = 0; i < *returned_table_size; i++) {
-    memcpy(&(meter[i].mac), &rt[i], sizeof(mesh_addr_t));
+  return (err != ESP_OK) ? err : ESP_OK;
+  //  for (int i = 0; i < *returned_table_size; i++) {
+  //    memcpy(&(meter[i].mac), &rt[i], sizeof(mesh_addr_t));
+  //  }
+}
+
+esp_err_t send_query_2all_nodes(uint8_t slave_id) {
+  /*Tomar la routing table y enviar el modbus query con el actual slaveID a
+   * todos los nodos*/
+  esp_err_t err;
+  mesh_data_t data;
+  data.proto = MESH_PROTO_BIN;
+  data.size = tamBUFFER;
+  data.data = tx_buf;
+  data.tos = MESH_TOS_P2P;
+
+  read_input_register_frame(slave_id, start_address, quantity, data.data);
+
+  int rt_len = 0;
+  err = get_meters_mac(rt, CONFIG_MESH_ROUTE_TABLE_SIZE, &rt_len);
+  for (int j = 1; j < rt_len; j++) {
+    err = esp_mesh_send(&rt[j], &data, MESH_DATA_P2P, NULL, 0);
+    if (err != ESP_OK) {
+      ESP_LOGW(MESH_TAG, "Query error %s slave_id: %02x" MACSTR,
+               esp_err_to_name(err), slave_id, MAC2STR(meter[j].mac.addr));
+      return err;
+    }
   }
   return ESP_OK;
 }
 
-esp_err_t get_meter_id(mesh_modbus_meter *meter, mesh_data_t *data) {
+static esp_err_t recv_node_response(uint8_t slave_id, uint8_t index) {
+  /* Recibir los datos provenientes de la red y llenar la estructura de salida*/
   esp_err_t err;
-  //  int flag = 0;
-  //  mesh_addr_t slave_mesh_addr;
-  //
-  //  err = esp_mesh_send(&meter->mac, data, MESH_DATA_P2P, NULL, 0);
-  //  if (err != ESP_OK) return err;
-  //  err = esp_mesh_recv(&slave_mesh_addr, data, (portTickType)MODBUS_TIMEOUT,
-  //                      &flag, NULL, 0);
-  //  if (err != ESP_OK) return err;
-  //  if (err == ESP_OK) {
-  //    meter->modbus_id = *data->data;
-  //  }
+  mesh_addr_t from;
+  mesh_data_t data;
+  data.data = rx_buf;
+  data.size = sizeof(rx_buf);
+  int flag = 0, frame_size = 9;
+
+  err = esp_mesh_recv(&from, &data, pdMS_TO_TICKS(MODBUS_TIMEOUT), &flag, NULL,
+                      0);
+  if (err == ESP_OK) {
+    if (CRC16(data.data, frame_size) == 0) {
+      ESP_LOGI(MESH_TAG, "Modbus frame verified");
+      check_exceptions(data.data);
+      meter[index].mac = from;
+      meter[index].slave_id = data.data[0];
+      save_register(data.data, frame_size, meter[index].energy.energyReg);
+    }
+  } else {
+    ESP_LOGW(MESH_TAG, "Response error %s Slave ID: %d", esp_err_to_name(err),
+             slave_id);
+    ESP_LOGI(MESH_TAG, "Frame not verified: %d", CRC16(data.data, frame_size));
+    //    crc_error_response(dtmp);
+    return err;
+  }
+
   return ESP_OK;
 }
 
 void mesh_modbus_master(void *Pa) {
   /*
-   * Tarea para repartir el mensaje recibido en el servidor por Broadcast de la
-   * red Mesh
+   *
    */
-
   esp_err_t err;
-  mesh_data_t data;
-  data.proto = MESH_PROTO_BIN;
-  data.data = tx_buf;
-  data.size = sizeof(tx_buf);
-  data.tos = MESH_TOS_P2P;
-
-  int rt_len = 0;
-
-  err = get_meters_mac(rt, meter, CONFIG_MESH_ROUTE_TABLE_SIZE, &rt_len);
-
-  // Send energy modbus queries
-  for (int i = 0; i <= CONFIG_SLAVE_QUANTITY; i++) {
-    read_input_register(slave_id[i], start_address, quantity, data.data);
-
-    for (int j = 1; j < rt_len; j++) {
-      err = esp_mesh_send(&meter[j].mac, &data, MESH_DATA_P2P, NULL, 0);
-      if (err != ESP_OK) {
-        ESP_LOGW(MESH_TAG, "Query error slave_id: %02x" MACSTR, slave_id[i],
-                 MAC2STR(meter[j].mac.addr));
-      }
+  while (esp_mesh_is_root()) {
+    for (int i = 0; i < CONFIG_SLAVE_QUANTITY; i++) {
+      send_query_2all_nodes(slave_id[i]);
+      recv_node_response(slave_id[i], i);
     }
   }
-
-  while (esp_mesh_is_root()) {
-    //    xQueueReceive(RxSocket, (char *)mensaje2, portMAX_DELAY);
-    /********* LEER LOS INPUTS REGISTERS ************/
-
-    //    tamano = 6 + (uint8_t)mensaje2[4] + (uint8_t)mensaje2[5];
-    //    for (int i = 0; i < tamano; i++) {
-    //      tx_buf[i] = (uint8_t)mensaje2[i];
-    //    }
-  }
-  ESP_LOGE(MESH_TAG, "Se elimino tarea Tx main\r\n");
+  ESP_LOGE(MESH_TAG, "Se elimino tarea Modbus Master");
   vTaskDelete(NULL);
 }
 
@@ -358,9 +368,8 @@ void esp_mesh_p2p_rx_main(void *arg) {
 
 void bus_rs485(void *arg) {
   INT_VAL longitud;
-  mesh_data_t dataMesh;
   BaseType_t ctrl_cola;
-
+  mesh_data_t dataMesh;
   dataMesh.proto = MESH_PROTO_BIN;
   dataMesh.size = tamBUFFER;
   dataMesh.data = tx_buf;

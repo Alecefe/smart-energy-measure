@@ -61,6 +61,7 @@ typedef struct {
 
 typedef union {
   uint32_t energy;
+  uint16_t *energyReg[2];
   struct {
     INT_VAL LowReg;
     INT_VAL HighReg;
@@ -74,6 +75,7 @@ typedef struct {
   char date[25];
 } mesh_modbus_meter;
 
+esp_err_t frame_qry_2all_nodes(uint8_t slave_id, mesh_data_t *data);
 void IRAM_ATTR interrupcionGPIOPULSOS(void *arg);
 void esp_mesh_tx_to_ext(void *arg);
 void esp_mesh_p2p_tx_main(void *Pa);

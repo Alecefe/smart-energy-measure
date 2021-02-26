@@ -26,11 +26,12 @@ enum modbus_excep_t {
   NEG_ACK,
   PAR_ERR
 };
-void read_input_register(uint8_t slave, uint16_t start_address,
-                         uint16_t quantity, uint8_t *buffer) {
+void read_input_register_frame(uint8_t slave, uint16_t start_address,
+                               uint16_t quantity, uint8_t *buffer) {
   INT_VAL address;
   INT_VAL Number;
   INT_VAL CRC;
+  const int frame_size = 8;
 
   uint8_t *frame = (uint8_t *)malloc(TX_BUF_SIZE);
   frame[0] = slave;
@@ -44,15 +45,12 @@ void read_input_register(uint8_t slave, uint16_t start_address,
   CRC.Val = CRC16(frame, 6);
   frame[6] = CRC.byte.LB;
   frame[7] = CRC.byte.HB;
-  int frame_size = 8;
   memcpy(buffer, frame, frame_size * sizeof(uint8_t));
   free(frame);
   ESP_LOGI(TAG, "Poll sent to slave : %d...", slave);
 }
 void save_register(uint8_t *data, uint8_t length, uint16_t **modbus_registers) {
   uint8_t FUNCTION = data[1];
-  uint16_t *inputRegister = modbus_registers[1];
-  uint8_t SLAVE = data[0];
   switch (FUNCTION) {
     case READ_INPUT:;
       uint8_t byte_count = data[2];
@@ -60,7 +58,7 @@ void save_register(uint8_t *data, uint8_t length, uint16_t **modbus_registers) {
       for (uint8_t i = 0; i < byte_count / 2; i++) {
         aux_registro.byte.HB = data[3 + 2 * i];
         aux_registro.byte.LB = data[4 + 2 * i];
-        inputRegister[SLAVE * 2 + i - 1] = aux_registro.Val;
+        *modbus_registers[i] = aux_registro.Val;
       }
       ESP_LOGI(TAG, "Received data saved...");
       break;

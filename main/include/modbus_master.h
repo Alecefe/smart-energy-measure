@@ -9,8 +9,8 @@
 #define MAIN_INCLUDE_MODBUS_MASTER_H_
 #include "stdbool.h"
 #include "stdint.h"
-void read_input_register(uint8_t slave, uint16_t start_address,
-                         uint16_t quantity, uint8_t *buffer);
+void read_input_register_frame(uint8_t slave, uint16_t start_address,
+                               uint16_t quantity, uint8_t *buffer);
 void save_register(uint8_t *data, uint8_t length, uint16_t **modbus_registers);
 int check_exceptions(uint8_t *data);
 void init_slaves(bool *slaves);
