@@ -11,7 +11,6 @@
 #include "lwip/sockets.h"
 #include "lwip/sys.h"
 #include "math.h"
-#include "meters_data.h"
 #include "modbus_master.h"
 #include "nvs_rotate.h"
 #include "ram-heap.h"
@@ -33,7 +32,6 @@ static mesh_addr_t mesh_parent_addr;
 static int mesh_layer = -1;
 
 static const char *MESH_TAG = "mesh_main";
-static const char *TCP_TAG = "TCP_SERVER";
 
 uint8_t SLAVE_ID;
 uint16_t fconv;
@@ -43,7 +41,7 @@ tipo_de_medidor tipo;
 uint32_t baud_rate;
 
 SemaphoreHandle_t smfPulso = NULL;
-bool creador = true;
+bool check_task_flag = true;
 
 uint16_t start_address = 0x21, quantity = 0x02;
 uint8_t slave_id[] = {0x01, 0x02, 0x0f};
@@ -53,173 +51,7 @@ mesh_addr_t rt[CONFIG_MESH_ROUTE_TABLE_SIZE];
 
 /********* Tareas del Root ************/
 
-void esp_mesh_tx_to_ext(void *arg) {
-  /*
-   * Recibe la trama proveniente del nodo solicitado en la red mesh y
-   * Envía la trama mediante el socket tcp creado en tcp_server_task
-   *
-   */
-
-  mesh_addr_t from;
-  mesh_data_t data;
-  data.data = rx_buf;
-  data.size = sizeof(rx_buf);
-  data.proto = MESH_PROTO_BIN;
-  int flag = 0, sendControl;
-  esp_err_t error;
-  char trama[tamBUFFER];
-
-  INT_VAL len;
-  while (esp_mesh_is_root()) {
-    error = esp_mesh_recv(&from, &data, portMAX_DELAY, &flag, NULL, 0);
-    if (error == ESP_OK) {
-      len.Val = rx_buf[4] + rx_buf[5] + 6;
-      for (int i = 0; i < len.Val; i++) {
-        trama[i] = (char)rx_buf[i];
-      }
-      for (int i = 0; i < len.Val; i++) {
-        printf("trama[%d] = %02x\r\n", i, trama[i]);
-      }
-      sendControl = send(men, trama, len.Val, 0);
-      if (sendControl < 0 || sendControl != len.Val) {
-        ESP_LOGE("Tx to Ext", "Error in send");
-      }
-    }
-  }
-  ESP_LOGE(MESH_TAG, "Se elimino tarea TX EXT");
-  vTaskDelete(NULL);
-}
-
-static void https_client_task(void *pvParameters) {
-  /*
-   *	Tarea que maneja el servidor TCP, por aquí se realizan conexiones con
-   *redes externas
-   */
-
-  char rx_buffer[128];
-  char addr_str[128];
-  int addr_family;
-  int ip_protocol;
-  int sock = 0;
-  struct timeval timeout, timeout_listen;
-  timeout.tv_sec = 20;
-  timeout.tv_usec = 0;
-  timeout_listen.tv_sec = 60 * 5;
-  timeout_listen.tv_usec = 0;
-
-#ifdef CONFIG_IPV4
-  struct sockaddr_in dest_addr;
-  dest_addr.sin_addr.s_addr = htonl(INADDR_ANY);
-  dest_addr.sin_family = AF_INET;
-  dest_addr.sin_port = htons(port);
-  addr_family = AF_INET;
-  ip_protocol = IPPROTO_IP;
-  inet_ntoa_r(dest_addr.sin_addr, addr_str, sizeof(addr_str) - 1);
-
-#else  // IPV6
-  struct sockaddr_in6 dest_addr;
-  bzero(&dest_addr.sin6_addr.un, sizeof(dest_addr.sin6_addr.un));
-  dest_addr.sin6_family = AF_INET6;
-  dest_addr.sin6_port = htons(port);
-  addr_family = AF_INET6;
-  ip_protocol = IPPROTO_IPV6;
-  inet6_ntoa_r(dest_addr.sin6_addr, addr_str, sizeof(addr_str) - 1);
-#endif
-
-  int listen_sock =
-      socket(addr_family, SOCK_STREAM, ip_protocol);  // Crea el socket
-  if (listen_sock < 0) {
-    ESP_LOGE(TCP_TAG, "Unable to create socket: errno %d", errno);
-  }
-
-  if (setsockopt(listen_sock, SOL_SOCKET, SO_RCVTIMEO, (char *)&timeout_listen,
-                 sizeof(timeout_listen)) == 0) {
-    printf("Tiempo Listening %d s\r\n", (uint32_t)timeout_listen.tv_sec);
-  }
-
-  ESP_LOGI(TCP_TAG, "Socket created");
-
-  int err = bind(listen_sock, (struct sockaddr *)&dest_addr,
-                 sizeof(dest_addr));  // Asigna ip al socket
-  if (err != 0) {
-    ESP_LOGE(TCP_TAG, "Socket unable to bind: errno %d", errno);
-  }
-  ESP_LOGI(TCP_TAG, "Socket bound, port %d", port);
-
-  while (esp_mesh_is_root()) {
-    err = listen(listen_sock, 1);  // A la espera de las posibles conexiones
-    if (err != 0) {
-      ESP_LOGE(TCP_TAG, "Error occurred during listen: errno %d", errno);
-      break;
-    }
-    ESP_LOGI(TCP_TAG, "Socket listening");
-
-    struct sockaddr_in6 source_addr;  // Large enough for both IPv4 or IPv6
-    uint addr_len = sizeof(source_addr);
-    sock =
-        accept(listen_sock, (struct sockaddr *)&source_addr,
-               &addr_len);  // Se acepta la conexión en caso de poder realizarse
-
-    if (setsockopt(sock, SOL_SOCKET, SO_RCVTIMEO, (char *)&timeout,
-                   sizeof(timeout)) == 0) {
-      printf("Configurado Timeout %d s\r\n", (uint32_t)timeout.tv_sec);
-    }
-    men = sock;
-
-    if (sock < 0) {
-      ESP_LOGE(TCP_TAG, "Unable to accept connection: errno %d", errno);
-      continue;
-    }
-    ESP_LOGI(TCP_TAG, "Socket accepted");
-
-    while (esp_mesh_is_root()) {
-      printf("Recibiendo TCP...\r\n");
-      int len = recv(sock, rx_buffer, sizeof(rx_buffer) - 1,
-                     0);  // Se queda esperando en el estado de recepción
-
-      // Error occurred during receiving
-      if (len < 0) {
-        ESP_LOGE(TCP_TAG, "recv failed: errno %d", errno);
-        timer_pause(TIMER_GROUP_0, TIMER_0);
-
-        break;
-      }
-
-      // Connection closed
-      else if (len == 0) {
-        ESP_LOGI(TCP_TAG, "Connection closed");
-        break;
-      }
-      // Data received
-      else {
-        // Get the sender's ip address as string
-        if (source_addr.sin6_family == PF_INET) {
-          inet_ntoa_r(((struct sockaddr_in *)&source_addr)->sin_addr.s_addr,
-                      addr_str, sizeof(addr_str) - 1);
-        } else if (source_addr.sin6_family == PF_INET6) {
-          inet6_ntoa_r(source_addr.sin6_addr, addr_str, sizeof(addr_str) - 1);
-        }
-
-        rx_buffer[len] =
-            0;  // Null-terminate whatever we received and treat like a string
-        ESP_LOGI(TCP_TAG, "Received %d bytes from %s:", len, addr_str);
-        ESP_LOGI(TCP_TAG, "%s", rx_buffer);
-
-        xQueueSendToFront(RxSocket, rx_buffer, pdMS_TO_TICKS(1000));
-      }
-    }
-
-    if (sock != -1) {
-      ESP_LOGE(TCP_TAG, "Shutting down socket and restarting...");
-      shutdown(sock, 0);
-      close(sock);
-      // socket(addr_family, SOCK_STREAM, ip_protocol);
-    }
-  }
-  ESP_LOGE(MESH_TAG, "Se Elimino la tarea TCP\r\n");
-  close(sock);
-  vTaskDelete(NULL);
-}
+void esp_mesh_tx_to_ext(void *arg) {}
 
 esp_err_t send_query_2all_nodes(uint8_t slave_id) {
   /*Tomar la routing table y enviar el modbus query con el actual slaveID a
@@ -281,7 +113,6 @@ void mesh_modbus_master(void *Pa) {
   /*
    *
    */
-  esp_err_t err;
   while (esp_mesh_is_root()) {
     for (int i = 0; i < CONFIG_SLAVE_QUANTITY; i++) {
       send_query_2all_nodes(slave_id[i]);
@@ -294,9 +125,7 @@ void mesh_modbus_master(void *Pa) {
 
 /********* Tareas de un Nodo ************/
 
-/****************************/
 /**** Bus RS485 Standard ****/
-/****************************/
 
 void esp_mesh_p2p_rx_main(void *arg) {
   INT_VAL len;
@@ -721,47 +550,37 @@ void mesh_event_handler(void *arg, esp_event_base_t event_base,
       } else {
         switch (tipo) {
           case (rs485):
-            creador = vTaskB(rx_child);
-            if (creador) {
+            check_task_flag = vTaskB(rx_child);
+            if (check_task_flag) {
               xTaskCreatePinnedToCore(esp_mesh_p2p_rx_main, rx_child, 3072 * 2,
                                       NULL, 5, NULL, 0);
             }
-            creador = vTaskB(rx_rs485);
-            if (creador) {
+            check_task_flag = vTaskB(rx_rs485);
+            if (check_task_flag) {
               xTaskCreatePinnedToCore(bus_rs485, rx_rs485, 3072 * 3, NULL, 5,
                                       NULL, 1);
               iniciarUART(tipo, baud_rate);
             }
             break;
           case (pulsos):
-            creador = vTaskB(modbus_pulse);
-            if (creador) {
+            check_task_flag = vTaskB(modbus_pulse);
+            if (check_task_flag) {
               xTaskCreatePinnedToCore(modbus_tcpip_pulsos, modbus_pulse,
                                       3072 * 2, NULL, 5, NULL, 0);
             }
-            creador = vTaskB(count_pulse);
-            if (creador)
+            check_task_flag = vTaskB(count_pulse);
+            if (check_task_flag)
               xTaskCreatePinnedToCore(rotar_nvs, count_pulse, 4 * 1024, NULL, 5,
                                       NULL, 1);
-
-            //        			creador = vTaskB(nvs_pulse);
-            //        			if(creador){
-            //        				xTaskCreatePinnedToCore(nvs_pulsos,nvs_pulse,3072*2,NULL,5,NULL,1);
-            //        			}
-            //        			creador = vTaskB(count_pulse);
-            //        			if(creador){
-            //        				xTaskCreatePinnedToCore(conteo_pulsos,count_pulse,3072*2,NULL,5,NULL,0);
-            //        			}
-
             break;
           case (chino):
-            creador = vTaskB(rx_child);
-            if (creador) {
+            check_task_flag = vTaskB(rx_child);
+            if (check_task_flag) {
               xTaskCreatePinnedToCore(esp_mesh_p2p_rx_main, rx_child, 3072 * 2,
                                       NULL, 5, NULL, 0);
             }
-            creador = vTaskB(rx_rs485);
-            if (creador) {
+            check_task_flag = vTaskB(rx_rs485);
+            if (check_task_flag) {
               xTaskCreatePinnedToCore(bus_rs485, rx_rs485, 3072 * 3, NULL, 5,
                                       NULL, 1);
               iniciarUART(tipo, baud_rate);
@@ -892,26 +711,14 @@ void mesh_event_handler(void *arg, esp_event_base_t event_base,
 
 void ip_event_handler(void *arg, esp_event_base_t event_base, int32_t event_id,
                       void *event_data) {
-  char tcp_server[11] = "tcp_server";
   char tx_root[3] = "TX";
-  char tx_ext[7] = "TX_EXT";
   ip_event_got_ip_t *event = (ip_event_got_ip_t *)event_data;
   ESP_LOGI(MESH_TAG, "<IP_EVENT_STA_GOT_IP>IP:%s",
            ip4addr_ntoa(&event->ip_info.ip));
-  creador = vTaskB(tcp_server);
-  if (creador) {
-    xTaskCreatePinnedToCore(https_client_task, "https_client_task", 1024 * 4,
-                            NULL, 1, NULL, 1);
-  }
-  creador = vTaskB(tx_root);
-  if (creador) {
+  check_task_flag = vTaskB(tx_root);
+  if (check_task_flag) {
     xTaskCreatePinnedToCore(mesh_modbus_master, "TX", 1024 * 3, NULL, 5, NULL,
                             0);
-  }
-  creador = vTaskB(tx_ext);
-  if (creador) {
-    xTaskCreatePinnedToCore(esp_mesh_tx_to_ext, "TX_EXT", 3072 * 2, NULL, 5,
-                            NULL, 0);
   }
 }
 
