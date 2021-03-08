@@ -78,7 +78,6 @@ typedef struct {
 esp_err_t recv_node_response(uint8_t slave_id, uint8_t index);
 esp_err_t frame_qry_2all_nodes(uint8_t slave_id, mesh_data_t *data);
 void IRAM_ATTR interrupcionGPIOPULSOS(void *arg);
-void esp_mesh_tx_to_ext(void *arg);
 void esp_mesh_p2p_tx_main(void *Pa);
 void esp_mesh_p2p_rx_main(void *arg);
 void bus_rs485(void *arg);

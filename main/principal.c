@@ -6,8 +6,7 @@
 static const char *MESH_INIT = "MESH_INIT";
 
 void app_main() {
-  /**************** CONFIGURACION DE GPIO PARA RECONOCIMIENTO DEL PULSADOR DE
-   * INICIO ****************/
+  /* RECONOCIMIENTO DEL PULSADOR DE INICIO */
   config_gpio();
   show_ram_status("Antes de nvs");
 
@@ -83,7 +82,7 @@ void app_main() {
     //		show_ram_status("Luego de cerrar nvs");
     //	    esp_err_t err = nvs_flash_init_partition("app1");
     //	    if (err == ESP_ERR_NVS_NO_FREE_PAGES || err ==
-    //ESP_ERR_NVS_NEW_VERSION_FOUND) {
+    // ESP_ERR_NVS_NEW_VERSION_FOUND) {
     //	        // NVS partition was truncated and needs to be erased
     //	        // Retry nvs_flash_init
     //	        ESP_ERROR_CHECK(nvs_flash_erase_partition("app1"));

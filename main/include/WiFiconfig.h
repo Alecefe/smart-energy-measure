@@ -3,10 +3,10 @@
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
 // Definiciones de SSID y password -------------------------//
-#define nombreWiFi "Clan Uchiha"
-#define claveWiFi "alecefe212502"
-#define ssid_ap "PruebaDeAcceso"
-#define clave_ap "polilla22"
+#define nombreWiFi "Estelita2.1"
+#define claveWiFi "pancho$5gomita"
+#define ssid_ap "EstelitaESP"
+#define clave_ap "pancho$5gomita"
 #define MAX_STA_CONN 10
 #define PIN_CONFIG_1 0
 // Funcion prototipo para inicializacion del WiFi ----------//

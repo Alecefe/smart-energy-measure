@@ -7,6 +7,7 @@
 #include "esp_event.h"
 #include "esp_system.h"
 #include "esp_websocket_client.h"
+#include "https_client.h"
 #include "lwip/err.h"
 #include "lwip/sockets.h"
 #include "lwip/sys.h"
@@ -14,6 +15,7 @@
 #include "modbus_master.h"
 #include "nvs_rotate.h"
 #include "ram-heap.h"
+#include "sntp_summ.h"
 #include "task_verify.h"
 #include "tcpip_adapter.h"
 
@@ -50,10 +52,7 @@ mesh_modbus_meter meter[CONFIG_SLAVE_QUANTITY];
 mesh_addr_t rt[CONFIG_MESH_ROUTE_TABLE_SIZE];
 
 /********* Tareas del Root ************/
-
-void esp_mesh_tx_to_ext(void *arg) {}
-
-esp_err_t send_query_2all_nodes(uint8_t slave_id) {
+esp_err_t send_query_2all(uint8_t slave_id) {
   /*Tomar la routing table y enviar el modbus query con el actual slaveID a
    * todos los nodos*/
   esp_err_t err;
@@ -110,14 +109,13 @@ esp_err_t recv_node_response(uint8_t slave_id, uint8_t index) {
 }
 
 void mesh_modbus_master(void *Pa) {
-  /*
-   *
-   */
   while (esp_mesh_is_root()) {
     for (int i = 0; i < CONFIG_SLAVE_QUANTITY; i++) {
-      send_query_2all_nodes(slave_id[i]);
+      send_query_2all(slave_id[i]);
       recv_node_response(slave_id[i], i);
     }
+    vTaskDelay(pdMS_TO_TICKS(15000));
+    ESP_LOGI(MMTAG, "Starting poll again...");
   }
   ESP_LOGE(MESH_TAG, "Se elimino tarea Modbus Master");
   vTaskDelete(NULL);
@@ -239,9 +237,7 @@ void bus_rs485(void *arg) {
   vTaskDelete(NULL);
 }
 
-/****************************/
 /**** Medidor de pulsos *****/
-/****************************/
 
 // INTERRUPCIONES
 /*Interrupcion de entrada de pulso*/
@@ -470,9 +466,7 @@ static void rotar_nvs(void *arg) {
   vTaskDelete(NULL);
 }
 
-/********************************/
 /**** Manejadores de eventos ****/
-/********************************/
 
 void mesh_event_handler(void *arg, esp_event_base_t event_base,
                         int32_t event_id, void *event_data) {
@@ -712,6 +706,7 @@ void mesh_event_handler(void *arg, esp_event_base_t event_base,
 void ip_event_handler(void *arg, esp_event_base_t event_base, int32_t event_id,
                       void *event_data) {
   char tx_root[3] = "TX";
+  char client_tag[] = "HTTP CLIENT";
   ip_event_got_ip_t *event = (ip_event_got_ip_t *)event_data;
   ESP_LOGI(MESH_TAG, "<IP_EVENT_STA_GOT_IP>IP:%s",
            ip4addr_ntoa(&event->ip_info.ip));
@@ -719,6 +714,12 @@ void ip_event_handler(void *arg, esp_event_base_t event_base, int32_t event_id,
   if (check_task_flag) {
     xTaskCreatePinnedToCore(mesh_modbus_master, "TX", 1024 * 3, NULL, 5, NULL,
                             0);
+  }
+  check_task_flag = vTaskB(client_tag);
+  if (check_task_flag) {
+    simple_ntp();
+    xTaskCreatePinnedToCore(https_get_task, client_tag, 1024 * 8, NULL, 5, NULL,
+                            1);
   }
 }
 
@@ -729,18 +730,11 @@ void ip_event_handler(void *arg, esp_event_base_t event_base, int32_t event_id,
 void config_gpio_pulsos(tipo_de_medidor tipo) {
   if (tipo == pulsos) {
     ESP_LOGI(MESH_TAG, "Configurando GPIO para medidor tipo pulsos");
-    // Tipo de interrupcion
     gpio_install_isr_service(ESP_INTR_FLAG_DEFAULT);
-    gpio_pad_select_gpio(PULSOS);  // configuro el BOTON_SALVAR como un pin GPIO
-    gpio_set_direction(
-        PULSOS,
-        GPIO_MODE_DEF_INPUT);  // seleciono el PULSOS como pin de entrada
-    gpio_isr_handler_add(PULSOS, INT_GPIO_PULSOS,
-                         NULL);  // añado el manejador para el servicio ISR
-    gpio_set_intr_type(PULSOS, GPIO_INTR_POSEDGE);  // habilito interrupción por
-                                                    // flanco descendente (1->0)
-    // tg0_timer_init(TIMER_0, TEST_WITH_RELOAD, TIMER_INTERVAL0_SEC);
-
+    gpio_pad_select_gpio(PULSOS);
+    gpio_set_direction(PULSOS, GPIO_MODE_DEF_INPUT);
+    gpio_isr_handler_add(PULSOS, INT_GPIO_PULSOS, NULL);
+    gpio_set_intr_type(PULSOS, GPIO_INTR_POSEDGE);
   } else {
     ESP_LOGI(MESH_TAG, "Configurando GPIO para medidor tipo RS485");
     gpio_pad_select_gpio(RS485);
